@@ -1,7 +1,6 @@
 """Chrome Service - DinoChrome con auto-play"""
 
 import time
-import threading
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
@@ -20,70 +19,40 @@ class ChromeService:
 
         self.driver = webdriver.Chrome(options=options)
 
-        # Cargar DinoChrome desde chrome-dino-game.github.io
-        self.driver.get("https://chrome-dino-game.github.io/")
-        time.sleep(1.5)
+        # Cargar DinoChrome local desde Django
+        self.driver.get("http://web:8000/dino/")
+        time.sleep(3)  # Esperar a que termine la animación de inicio
 
-        # Auto-play
-        threading.Thread(target=self._auto_play, daemon=True).start()
+        # Auto-play (ya está implementado en el juego)
         return True
 
-    def _auto_play(self):
-        """Inicia y juega automáticamente"""
-        time.sleep(2)
-
-        # Hacer inmortal
-        self.driver.execute_script("Runner.prototype.gameOver = function() {};")
-
-        # Iniciar juego - múltiples intentos
-        for _ in range(3):
-            self.driver.execute_script("document.dispatchEvent(new KeyboardEvent('keydown', {keyCode: 32}));")
-            time.sleep(0.3)
-
-        # Configurar velocidad
-        configured = False
-
-        # Loop: detectar y saltar
-        while self.driver:
-            result = self.driver.execute_script("""
-                if (typeof Runner !== 'undefined' && Runner.instance_) {
-                    var r = Runner.instance_;
-
-                    // Configurar velocidad fija (solo la primera vez)
-                    if (r.config.ACCELERATION !== 0) {
-                        r.setSpeed(12);
-                        r.config.ACCELERATION = 0;
-                        return 'configured';
-                    }
-
-                    // Actualizar high score continuamente (porque nunca hay game over)
-                    if (r.distanceRan > r.highestScore) {
-                        r.highestScore = Math.floor(r.distanceRan);
-                        r.distanceMeter.setHighScore(r.highestScore);
-                    }
-
-                    // Saltar obstáculos
-                    if (r.horizon?.obstacles?.[0]) {
-                        var dist = r.horizon.obstacles[0].xPos - r.tRex.xPos;
-                        if (dist > 0 && dist < 100 && !r.tRex.jumping) {
-                            document.dispatchEvent(new KeyboardEvent('keydown', {keyCode: 32}));
-                            return dist;
-                        }
-                    }
-                    return 'ok';
-                }
-                return 'no_runner';
+    def get_score(self):
+        """Obtiene el score actual del juego"""
+        try:
+            return self.driver.execute_script("""
+                const scoreElem = document.querySelector('[data-score]');
+                return scoreElem ? parseInt(scoreElem.textContent) : 0;
             """)
+        except:
+            return 0
 
-            if result == 'configured' and not configured:
-                print("[CHROME] ✅ Velocidad configurada")
-                configured = True
-            elif isinstance(result, (int, float)):
-                print(f"[CHROME] 🦖 Salto! ({result}px)")
-            elif result == 'no_runner':
-                print("[CHROME] ⚠️ Runner no disponible")
+    def get_high_score(self):
+        """Obtiene el récord del juego"""
+        try:
+            return self.driver.execute_script("""
+                const highScoreElem = document.querySelector('[data-high-score]');
+                return highScoreElem ? parseInt(highScoreElem.textContent) : 0;
+            """)
+        except:
+            return 0
 
-            time.sleep(0.03)
+    def restart(self):
+        """Reinicia el juego"""
+        try:
+            self.driver.execute_script("window.restartGame();")
+            return True
+        except:
+            return False
 
     def close(self):
         if self.driver:

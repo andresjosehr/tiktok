@@ -6,7 +6,7 @@ Actualmente solo simula las acciones con timeouts y logs.
 """
 
 from apps.queue_system.base_service import BaseQueueService
-from apps.services.chrome.ChromeService import ChromeService
+from apps.services.dinochrome.ChromeService import ChromeService
 
 
 class DinoChromeService(BaseQueueService):
@@ -79,6 +79,14 @@ class DinoChromeService(BaseQueueService):
 
     def _process_gift(self, live_event, queue_item):
         """Procesa evento de regalo"""
+        event_data = live_event.event_data
+        gift_name = event_data.get('gift', {}).get('name', '').lower()
+
+        # Si es una rosa, reiniciar el juego
+        if 'rose' in gift_name or 'rosa' in gift_name:
+            self.chrome.restart()
+            return True
+
         return True
 
     def _process_comment(self, live_event, queue_item):
