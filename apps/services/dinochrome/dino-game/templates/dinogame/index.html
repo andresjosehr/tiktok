@@ -14,7 +14,10 @@
 </head>
 <body>
   <div class="world" data-world>
-    <div class="score" data-score>0</div>
+    <div class="score-container">
+      <div class="high-score">RÉCORD <span data-high-score>0</span></div>
+      <div class="score">SCORE <span data-score>0</span></div>
+    </div>
     <img src="{% static 'dinogame/imgs/cloud.png' %}" class="cloud" data-cloud>
     <img src="{% static 'dinogame/imgs/cloud.png' %}" class="cloud" data-cloud>
     <img src="{% static 'dinogame/imgs/cloud.png' %}" class="cloud" data-cloud>

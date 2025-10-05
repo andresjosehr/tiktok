@@ -10,9 +10,18 @@ const AUTO_JUMP_DISTANCE = 150
 
 const worldElem = document.querySelector("[data-world]")
 const scoreElem = document.querySelector("[data-score]")
+const highScoreElem = document.querySelector("[data-high-score]")
+
+let highScore = localStorage.getItem('dinoHighScore') || 0
+highScoreElem.textContent = Math.floor(highScore)
 
 setPixelToWorldScale()
 window.addEventListener("resize", setPixelToWorldScale)
+
+// Inicializar posiciones de elementos al cargar
+setupCloud()
+setupGround()
+setupDino()
 
 // Iniciar juego automáticamente después de la animación de revelación
 setTimeout(() => {
@@ -22,7 +31,10 @@ setTimeout(() => {
 let lastTime
 let speedScale
 let score
+let isGameRunning = false
 function update(time) {
+  if (!isGameRunning) return
+
   if (lastTime == null) {
     lastTime = time
     window.requestAnimationFrame(update)
@@ -63,19 +75,69 @@ function updateSpeedScale(delta) {
 
 function updateScore(delta) {
   score += delta * 0.01
-  scoreElem.textContent = Math.floor(score)
+  const currentScore = Math.floor(score)
+  scoreElem.textContent = currentScore
+
+  if (currentScore > highScore) {
+    highScore = currentScore
+    highScoreElem.textContent = highScore
+    localStorage.setItem('dinoHighScore', highScore)
+  }
 }
 
 function handleStart() {
   lastTime = null
   speedScale = 1.5
   score = 0
-  setupCloud()
-  setupGround()
-  setupDino()
+  isGameRunning = true
   setupCactus()
   window.requestAnimationFrame(update)
 }
+
+export function restartGame() {
+  // DETENER el juego completamente
+  isGameRunning = false
+  lastTime = null
+  speedScale = 0
+  score = 0
+  scoreElem.textContent = 0
+
+  // Limpiar cactus existentes
+  document.querySelectorAll("[data-cactus]").forEach(cactus => {
+    cactus.remove()
+  })
+
+  // Reiniciar posiciones
+  setupCloud()
+  setupGround()
+  setupDino()
+
+  // Crear y mostrar cortina de nuevo
+  const curtain = document.createElement('div')
+  curtain.className = 'restart-curtain'
+  worldElem.appendChild(curtain)
+
+  // Después de 2 segundos, animar la cortina
+  setTimeout(() => {
+    curtain.classList.add('reveal')
+  }, 2000)
+
+  // Después de 3 segundos (cuando termina la animación), iniciar el juego
+  setTimeout(() => {
+    isGameRunning = true
+    speedScale = 1.5
+    setupCactus()
+    window.requestAnimationFrame(update)
+
+    // Remover la cortina después de que termine la animación
+    setTimeout(() => {
+      curtain.remove()
+    }, 1000)
+  }, 3000)
+}
+
+// Hacer la función accesible globalmente
+window.restartGame = restartGame
 
 function autoJump() {
   const cactusRects = getCactusRects()
