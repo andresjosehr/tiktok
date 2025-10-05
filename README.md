@@ -179,7 +179,34 @@ Tres servicios de demostración:
 
 ## 🎮 Comandos Principales
 
-### Capturar Eventos de TikTok Live
+### Iniciar el Sistema Completo (Recomendado)
+
+```bash
+# Inicia todo: captura de TikTok + workers de procesamiento
+docker-compose exec web python manage.py start_event_system
+
+# Con nombre de sesión personalizado
+docker-compose exec web python manage.py start_event_system --session-name "Sesión de tarde"
+
+# Con logs detallados
+docker-compose exec web python manage.py start_event_system --verbose
+```
+
+**¿Qué hace?**
+- Inicia automáticamente todos los workers de servicios activos
+- Conecta a TikTok Live y captura eventos en tiempo real
+- Muestra dashboard con estadísticas cada 30 segundos
+- Gestión unificada de todos los procesos
+- Detención graceful con Ctrl+C (finaliza sesión y detiene workers)
+- El username se toma de la configuración `tiktok_user` en Config
+
+**Este es el comando recomendado para uso normal** 🌟
+
+---
+
+### Comandos Individuales (Uso Avanzado)
+
+#### Capturar Solo Eventos de TikTok Live
 
 ```bash
 # Capturar eventos (el username se toma de Config)
@@ -189,7 +216,7 @@ docker-compose exec web python manage.py capture_tiktok_live
 docker-compose exec web python manage.py capture_tiktok_live --username nombrestreamer
 
 # Con nombre de sesión
-docker-compose exec web python manage.py capture_tiktok_live --username nombrestreamer --session-name "Sesión de tarde"
+docker-compose exec web python manage.py capture_tiktok_live --session-name "Sesión de tarde"
 ```
 
 **¿Qué hace?**
@@ -198,8 +225,9 @@ docker-compose exec web python manage.py capture_tiktok_live --username nombrest
 - Guarda en `LiveEvent`
 - Distribuye automáticamente a las colas de servicios activos
 - Crea una nueva sesión cada vez que se ejecuta
+- **Nota**: Los eventos se encolan pero NO se procesan hasta que ejecutes `run_queue_workers`
 
-### Ejecutar Workers (Procesadores de Cola)
+#### Ejecutar Solo Workers (Procesadores de Cola)
 
 ```bash
 # Ejecutar todos los servicios activos
@@ -217,6 +245,7 @@ docker-compose exec web python manage.py run_queue_workers --verbose
 - Procesa eventos de la cola por orden de prioridad
 - Muestra estadísticas cada 30 segundos
 - Detención graceful con Ctrl+C
+- **Nota**: Solo procesa eventos, NO captura de TikTok
 
 ### Poblar Datos Iniciales
 
@@ -363,7 +392,78 @@ docker-compose exec web python manage.py run_queue_workers --service mi_servicio
 
 ## 📊 Flujo Completo de Ejemplo
 
-### Terminal 1: Capturar eventos de TikTok
+### Opción 1: Sistema Completo (Recomendado) ⭐
+
+```bash
+docker-compose exec web python manage.py start_event_system --verbose
+```
+
+**Output:**
+```
+======================================================================
+🚀 SISTEMA DE EVENTOS TIKTOK - INICIO
+======================================================================
+
+📺 Streamer: @nombrestreamer
+⏰ Hora inicio: 2025-10-05 15:30:00
+
+======================================================================
+📦 INICIANDO WORKERS DE SERVICIOS
+======================================================================
+
+🔧 Iniciando worker: DinoChrome
+  ✅ Worker activo (cola máx: 50)
+🔧 Iniciando worker: Overlays
+  ✅ Worker activo (cola máx: 100)
+
+✅ 2 worker(s) iniciado(s)
+
+======================================================================
+📡 INICIANDO CAPTURA DE TIKTOK LIVE
+======================================================================
+
+🎬 Conectando a @nombrestreamer...
+✅ Captura de TikTok iniciada
+
+======================================================================
+📊 SISTEMA ACTIVO - Monitoreo en tiempo real
+======================================================================
+
+💡 Presiona Ctrl+C para detener el sistema
+📊 Estadísticas cada 30 segundos...
+
+💬 usuario123: Hola!
+🎁 usuario456 envió Rosa x1
+✅ [DinoChrome] CommentEvent (P:6) completado
+✅ [Overlays] CommentEvent (P:5) completado
+✅ [DinoChrome] GiftEvent (P:10) completado
+✅ [Overlays] GiftEvent (P:10) completado
+
+======================================================================
+📊 ESTADÍSTICAS DEL SISTEMA
+======================================================================
+
+⏱️  Tiempo activo: 0h 5m
+📝 Sesión ID: 1
+📊 Eventos capturados: 42
+
+🔧 Workers activos: 2
+
+🟢 DinoChrome
+  • Pendientes: 0
+  • Procesando: 0
+
+🟢 Overlays
+  • Pendientes: 0
+  • Procesando: 0
+  • Threads async: 0
+
+======================================================================
+```
+
+### Opción 2: Comandos Separados (Avanzado)
+
+#### Terminal 1: Capturar eventos de TikTok
 
 ```bash
 docker-compose exec web python manage.py capture_tiktok_live --username nombrestreamer
@@ -379,7 +479,7 @@ docker-compose exec web python manage.py capture_tiktok_live --username nombrest
 ❤️ usuario789 dio like
 ```
 
-### Terminal 2: Ejecutar workers
+#### Terminal 2: Ejecutar workers
 
 ```bash
 docker-compose exec web python manage.py run_queue_workers --verbose
