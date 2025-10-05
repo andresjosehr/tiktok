@@ -20,6 +20,17 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.WARNING('  ⚠️  Config "tiktok_user" ya existe'))
 
+        # Crear config de elevenlabs_api
+        self.stdout.write('\n🔑 Creando configuración de elevenlabs_api...')
+        config, created = Config.objects.get_or_create(
+            meta_key='elevenlabs_api',
+            defaults={'meta_value': ''}
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS('  ✅ Config "elevenlabs_api" creada'))
+        else:
+            self.stdout.write(self.style.WARNING('  ⚠️  Config "elevenlabs_api" ya existe'))
+
         # 2. Crear servicio DinoChrome
         self.stdout.write('\n🦖 Creando servicio DinoChrome...')
         dinochrome, created = Service.objects.get_or_create(
@@ -199,7 +210,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('✅ Población de datos completada exitosamente!'))
         self.stdout.write('='*60)
         self.stdout.write('\n📊 Resumen:')
-        self.stdout.write(f'  • Config: 1 registro (tiktok_user)')
+        self.stdout.write(f'  • Config: 2 registros (tiktok_user, elevenlabs_api)')
         self.stdout.write(f'  • Servicios: 2 (DinoChrome, Overlays)')
         self.stdout.write(f'  • DinoChrome: {ServiceEventConfig.objects.filter(service=dinochrome).count()} configuraciones de eventos (SYNC)')
         self.stdout.write(f'  • Overlays: {ServiceEventConfig.objects.filter(service=overlays).count()} configuraciones de eventos (ASYNC)')

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de ElevenLabs TTS</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Prueba de ElevenLabs Text-to-Speech</h1>
+
+        <form id="tts-form" method="post">
+            {% csrf_token %}
+
+            <label for="text" style="display: block; margin-bottom: 10px; font-weight: bold; color: #555;">
+                Texto a convertir en voz:
+            </label>
+            <textarea
+                id="text"
+                name="text"
+                rows="6"
+                placeholder="Escribe aquí el texto que quieres convertir a voz...">Hola, esto es una prueba de ElevenLabs</textarea>
+
+            <button type="submit">
+                🔊 Reproducir Audio
+            </button>
+
+            <div id="result"></div>
+        </form>
+    </div>
+
+<script>
+document.getElementById('tts-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const resultDiv = document.getElementById('result');
+    const button = this.querySelector('button[type="submit"]');
+    const originalText = button.textContent;
+
+    // Mostrar estado de carga
+    button.disabled = true;
+    button.textContent = '⏳ Generando audio...';
+    resultDiv.style.display = 'block';
+    resultDiv.style.backgroundColor = '#fff3cd';
+    resultDiv.style.border = '1px solid #ffc107';
+    resultDiv.style.color = '#856404';
+    resultDiv.textContent = 'Generando y reproduciendo audio...';
+
+    const formData = new FormData(this);
+
+    fetch('', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultDiv.style.backgroundColor = '#d4edda';
+            resultDiv.style.border = '1px solid #28a745';
+            resultDiv.style.color = '#155724';
+            resultDiv.innerHTML = '✅ ' + data.message + '<br><audio controls autoplay style="margin-top: 10px;"><source src="' + data.audio_url + '" type="audio/mpeg"></audio>';
+        } else {
+            resultDiv.style.backgroundColor = '#f8d7da';
+            resultDiv.style.border = '1px solid #dc3545';
+            resultDiv.style.color = '#721c24';
+            resultDiv.textContent = '❌ Error: ' + data.error;
+        }
+    })
+    .catch(error => {
+        resultDiv.style.backgroundColor = '#f8d7da';
+        resultDiv.style.border = '1px solid #dc3545';
+        resultDiv.style.color = '#721c24';
+        resultDiv.textContent = '❌ Error de conexión: ' + error;
+    })
+    .finally(() => {
+        button.disabled = false;
+        button.textContent = originalText;
+    });
+});
+</script>
+</body>
+</html>
