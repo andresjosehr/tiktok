@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # Apps
+    'apps.queue_system',
     'apps.tiktok_events',
     'apps.app_config',
 ]

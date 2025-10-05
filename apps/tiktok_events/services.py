@@ -16,6 +16,7 @@ from TikTokLive.events import (
     SubscribeEvent,
 )
 from .models import LiveEvent, LiveSession
+from apps.queue_system.dispatcher import EventDispatcher
 
 
 def clean_text(text: str) -> str:
@@ -135,7 +136,7 @@ class TikTokEventCapture:
             }
         }
 
-        await sync_to_async(LiveEvent.objects.create)(
+        live_event = await sync_to_async(LiveEvent.objects.create)(
             session=self.session,
             event_type='CommentEvent',
             timestamp=timezone.now(),
@@ -146,6 +147,10 @@ class TikTokEventCapture:
             user_nickname=clean_text(event.user.nickname),
             event_data=event_data
         )
+
+        # Distribuir a las colas de servicios
+        await sync_to_async(EventDispatcher.dispatch)(live_event)
+
         print(f"💬 {event.user.unique_id}: {event.comment}")
 
     async def on_gift(self, event: GiftEvent):
@@ -182,7 +187,7 @@ class TikTokEventCapture:
             }
         }
 
-        await sync_to_async(LiveEvent.objects.create)(
+        live_event = await sync_to_async(LiveEvent.objects.create)(
             session=self.session,
             event_type='GiftEvent',
             timestamp=timezone.now(),
@@ -196,6 +201,9 @@ class TikTokEventCapture:
             streak_status=streak_status,
             event_data=event_data
         )
+
+        # Distribuir a las colas de servicios
+        await sync_to_async(EventDispatcher.dispatch)(live_event)
 
         status_emoji = "🔄" if is_streaking else "✅"
         print(f"{status_emoji} {event.user.unique_id} envió {event.gift.name} x{repeat_count} (Total racha: {total_count})")
@@ -211,7 +219,7 @@ class TikTokEventCapture:
             }
         }
 
-        await sync_to_async(LiveEvent.objects.create)(
+        live_event = await sync_to_async(LiveEvent.objects.create)(
             session=self.session,
             event_type='LikeEvent',
             timestamp=timezone.now(),
@@ -222,6 +230,7 @@ class TikTokEventCapture:
             user_nickname=clean_text(event.user.nickname),
             event_data=event_data
         )
+        await sync_to_async(EventDispatcher.dispatch)(live_event)
         print(f"❤️ {event.user.unique_id} dio like")
 
     async def on_share(self, event: ShareEvent):
@@ -234,7 +243,7 @@ class TikTokEventCapture:
             }
         }
 
-        await sync_to_async(LiveEvent.objects.create)(
+        live_event = await sync_to_async(LiveEvent.objects.create)(
             session=self.session,
             event_type='ShareEvent',
             timestamp=timezone.now(),
@@ -245,6 +254,7 @@ class TikTokEventCapture:
             user_nickname=clean_text(event.user.nickname),
             event_data=event_data
         )
+        await sync_to_async(EventDispatcher.dispatch)(live_event)
         print(f"📤 {event.user.unique_id} compartió el live")
 
     async def on_follow(self, event: FollowEvent):
@@ -256,7 +266,7 @@ class TikTokEventCapture:
             }
         }
 
-        await sync_to_async(LiveEvent.objects.create)(
+        live_event = await sync_to_async(LiveEvent.objects.create)(
             session=self.session,
             event_type='FollowEvent',
             timestamp=timezone.now(),
@@ -267,6 +277,7 @@ class TikTokEventCapture:
             user_nickname=clean_text(event.user.nickname),
             event_data=event_data
         )
+        await sync_to_async(EventDispatcher.dispatch)(live_event)
         print(f"👤 {event.user.unique_id} siguió al streamer")
 
     async def on_join(self, event: JoinEvent):
@@ -278,7 +289,7 @@ class TikTokEventCapture:
             }
         }
 
-        await sync_to_async(LiveEvent.objects.create)(
+        live_event = await sync_to_async(LiveEvent.objects.create)(
             session=self.session,
             event_type='JoinEvent',
             timestamp=timezone.now(),
@@ -289,6 +300,7 @@ class TikTokEventCapture:
             user_nickname=clean_text(event.user.nickname),
             event_data=event_data
         )
+        await sync_to_async(EventDispatcher.dispatch)(live_event)
         print(f"🚪 {event.user.unique_id} se unió al live")
 
     async def on_subscribe(self, event: SubscribeEvent):
@@ -300,7 +312,7 @@ class TikTokEventCapture:
             }
         }
 
-        await sync_to_async(LiveEvent.objects.create)(
+        live_event = await sync_to_async(LiveEvent.objects.create)(
             session=self.session,
             event_type='SubscribeEvent',
             timestamp=timezone.now(),
@@ -311,6 +323,7 @@ class TikTokEventCapture:
             user_nickname=clean_text(event.user.nickname),
             event_data=event_data
         )
+        await sync_to_async(EventDispatcher.dispatch)(live_event)
         print(f"⭐ {event.user.unique_id} se suscribió")
 
     def start(self):
