@@ -51,9 +51,15 @@ class ChromeService:
 
                     // Configurar velocidad fija (solo la primera vez)
                     if (r.config.ACCELERATION !== 0) {
-                        r.setSpeed(6);
+                        r.setSpeed(12);
                         r.config.ACCELERATION = 0;
                         return 'configured';
+                    }
+
+                    // Actualizar high score continuamente (porque nunca hay game over)
+                    if (r.distanceRan > r.highestScore) {
+                        r.highestScore = Math.floor(r.distanceRan);
+                        r.distanceMeter.setHighScore(r.highestScore);
                     }
 
                     // Saltar obstáculos
