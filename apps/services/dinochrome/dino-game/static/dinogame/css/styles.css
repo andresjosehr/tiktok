@@ -19,33 +19,34 @@ body {
 
 .score-container {
   position: absolute;
-  right: 3vmin;
-  top: 2vmin;
+  right: 15px;
+  top: 10px;
   display: flex;
-  gap: 2vmin;
+  gap: 10px;
   font-family: 'Courier New', monospace;
   font-weight: bold;
   color: #535353;
-  font-size: 2vmin;
+  font-size: 12px;
   z-index: 11;
 }
 
 .high-score, .score {
-  padding: 1.5vmin 2.5vmin;
+  padding: 8px 12px;
   background: rgba(255, 255, 255, 0.9);
-  border-radius: 1vmin;
-  box-shadow: 0 0.2vmin 1vmin rgba(0, 0, 0, 0.1);
-  letter-spacing: 0.1vmin;
+  border-radius: 5px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
+  letter-spacing: 0.5px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5vmin;
+  gap: 3px;
+  min-width: 80px;
 }
 
 .high-score span, .score span {
-  font-size: 3vmin;
+  font-size: 16px;
   color: #333;
-  letter-spacing: 0.3vmin;
+  letter-spacing: 1px;
 }
 
 .hide {

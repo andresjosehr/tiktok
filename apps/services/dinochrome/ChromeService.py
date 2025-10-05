@@ -9,7 +9,7 @@ class ChromeService:
     def __init__(self):
         self.driver = None
 
-    def initialize_browser(self, headless=False, width=800, height=400):
+    def initialize_browser(self, headless=False, width=800, height=600):
         """Inicializa Chrome con DinoChrome"""
         options = Options()
         if headless:
