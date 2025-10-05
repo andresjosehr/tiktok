@@ -1,0 +1,4 @@
+Django==5.0.1
+mysqlclient==2.2.1
+python-dotenv==1.0.0
+TikTokLive==6.6.1
