@@ -5,7 +5,7 @@ import { updateCloud, setupCloud } from "./cloud.js"
 
 const WORLD_WIDTH = 100
 const WORLD_HEIGHT = 30
-const SPEED_SCALE_INCREASE = 0.00001
+const SPEED_SCALE_INCREASE = 0.00002
 const AUTO_JUMP_DISTANCE = 150
 
 const worldElem = document.querySelector("[data-world]")
@@ -34,7 +34,7 @@ function update(time) {
   updateSpeedScale(delta)
   updateScore(delta)
   autoJump()
-  if (checkLose()) return handleLose()
+  // if (checkLose()) return handleLose() // Dinosaurio inmortal
 
   lastTime = time
   window.requestAnimationFrame(update)
@@ -65,7 +65,7 @@ function updateScore(delta) {
 
 function handleStart() {
   lastTime = null
-  speedScale = 1
+  speedScale = 1.5
   score = 0
   setupCloud()
   setupGround()

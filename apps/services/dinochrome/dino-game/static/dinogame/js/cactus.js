@@ -5,8 +5,8 @@ import {
 } from "./updateCustomProperty.js"
 
 const SPEED = 0.05
-const CACTUS_INTERVAL_MIN = 500
-const CACTUS_INTERVAL_MAX = 2000
+const CACTUS_INTERVAL_MIN = 675
+const CACTUS_INTERVAL_MAX = 1300
 const worldElem = document.querySelector("[data-world]")
 
 let nextCactusTime
@@ -27,8 +27,7 @@ export function updateCactus(delta, speedScale) {
 
   if (nextCactusTime <= 0) {
     createCactus()
-    nextCactusTime =
-      randomNumberBetween(CACTUS_INTERVAL_MIN, CACTUS_INTERVAL_MAX) / speedScale
+    nextCactusTime = randomNumberBetween(CACTUS_INTERVAL_MIN, CACTUS_INTERVAL_MAX)
   }
   nextCactusTime -= delta
 }
