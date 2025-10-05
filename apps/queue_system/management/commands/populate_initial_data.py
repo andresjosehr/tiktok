@@ -26,7 +26,7 @@ class Command(BaseCommand):
             slug='dinochrome',
             defaults={
                 'name': 'DinoChrome',
-                'service_class': 'apps.services.dinochrome.services.DinoChromeService',
+                'service_class': 'apps.services.dinochrome.DinoChromeService.DinoChromeService',
                 'description': 'Servicio que controla Chrome para interacciones con el navegador',
                 'is_active': True,
                 'max_queue_size': 50
@@ -34,8 +34,8 @@ class Command(BaseCommand):
         )
 
         # Actualizar service_class si ya existe pero tiene el valor antiguo
-        if not created and dinochrome.service_class != 'apps.services.dinochrome.services.DinoChromeService':
-            dinochrome.service_class = 'apps.services.dinochrome.services.DinoChromeService'
+        if not created and dinochrome.service_class != 'apps.services.dinochrome.DinoChromeService.DinoChromeService':
+            dinochrome.service_class = 'apps.services.dinochrome.DinoChromeService.DinoChromeService'
             dinochrome.save()
         if created:
             self.stdout.write(self.style.SUCCESS('  ✅ Servicio DinoChrome creado'))
