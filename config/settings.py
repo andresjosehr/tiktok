@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'apps.queue_system',
     'apps.tiktok_events',
     'apps.app_config',
+    'apps.services.dinochrome.dino-game.apps.DinoGameConfig',
 ]
 
 MIDDLEWARE = [
