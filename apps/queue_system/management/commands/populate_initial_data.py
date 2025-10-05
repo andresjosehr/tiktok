@@ -31,6 +31,50 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.WARNING('  ⚠️  Config "elevenlabs_api" ya existe'))
 
+        # Crear config de llm_url
+        self.stdout.write('\n🤖 Creando configuración de llm_url...')
+        config, created = Config.objects.get_or_create(
+            meta_key='llm_url',
+            defaults={'meta_value': 'https://api.deepseek.com/chat/completions'}
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS('  ✅ Config "llm_url" creada'))
+        else:
+            self.stdout.write(self.style.WARNING('  ⚠️  Config "llm_url" ya existe'))
+
+        # Crear config de llm_key
+        self.stdout.write('\n🔑 Creando configuración de llm_key...')
+        config, created = Config.objects.get_or_create(
+            meta_key='llm_key',
+            defaults={'meta_value': ''}
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS('  ✅ Config "llm_key" creada'))
+        else:
+            self.stdout.write(self.style.WARNING('  ⚠️  Config "llm_key" ya existe'))
+
+        # Crear config de llm_model
+        self.stdout.write('\n🧠 Creando configuración de llm_model...')
+        config, created = Config.objects.get_or_create(
+            meta_key='llm_model',
+            defaults={'meta_value': 'deepseek-chat'}
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS('  ✅ Config "llm_model" creada'))
+        else:
+            self.stdout.write(self.style.WARNING('  ⚠️  Config "llm_model" ya existe'))
+
+        # Crear config de llm_system_prompt
+        self.stdout.write('\n💬 Creando configuración de llm_system_prompt...')
+        config, created = Config.objects.get_or_create(
+            meta_key='llm_system_prompt',
+            defaults={'meta_value': 'You are a helpful assistant for a TikTok Live streaming system. Generate brief, friendly responses to viewer interactions.'}
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS('  ✅ Config "llm_system_prompt" creada'))
+        else:
+            self.stdout.write(self.style.WARNING('  ⚠️  Config "llm_system_prompt" ya existe'))
+
         # 2. Crear servicio DinoChrome
         self.stdout.write('\n🦖 Creando servicio DinoChrome...')
         dinochrome, created = Service.objects.get_or_create(
@@ -210,7 +254,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('✅ Población de datos completada exitosamente!'))
         self.stdout.write('='*60)
         self.stdout.write('\n📊 Resumen:')
-        self.stdout.write(f'  • Config: 2 registros (tiktok_user, elevenlabs_api)')
+        self.stdout.write(f'  • Config: 6 registros (tiktok_user, elevenlabs_api, llm_url, llm_key, llm_model, llm_system_prompt)')
         self.stdout.write(f'  • Servicios: 2 (DinoChrome, Overlays)')
         self.stdout.write(f'  • DinoChrome: {ServiceEventConfig.objects.filter(service=dinochrome).count()} configuraciones de eventos (SYNC)')
         self.stdout.write(f'  • Overlays: {ServiceEventConfig.objects.filter(service=overlays).count()} configuraciones de eventos (ASYNC)')

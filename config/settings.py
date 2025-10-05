@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'apps.app_config',
     'apps.services.dinochrome.dino-game.apps.DinoGameConfig',
     'apps.integrations.elevenlabs',
+    'apps.integrations.llm',
 ]
 
 MIDDLEWARE = [
