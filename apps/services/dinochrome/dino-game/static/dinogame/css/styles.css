@@ -57,3 +57,12 @@ body {
   height: 30%;
   bottom: 0;
 }
+
+.cloud {
+  --left: 0;
+  --top: 10;
+  position: absolute;
+  width: 15%;
+  top: calc(var(--top) * 1%);
+  left: calc(var(--left) * 1%);
+}

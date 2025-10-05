@@ -24,6 +24,12 @@ export function setupDino() {
   document.addEventListener("keydown", onJump)
 }
 
+export function triggerJump() {
+  if (isJumping) return
+  yVelocity = JUMP_SPEED
+  isJumping = true
+}
+
 export function updateDino(delta, speedScale) {
   handleRun(delta, speedScale)
   handleJump(delta)

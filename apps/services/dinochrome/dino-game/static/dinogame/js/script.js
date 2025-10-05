@@ -1,10 +1,12 @@
 import { updateGround, setupGround } from "./ground.js"
-import { updateDino, setupDino, getDinoRect, setDinoLose } from "./dino.js"
+import { updateDino, setupDino, getDinoRect, setDinoLose, triggerJump } from "./dino.js"
 import { updateCactus, setupCactus, getCactusRects } from "./cactus.js"
+import { updateCloud, setupCloud } from "./cloud.js"
 
 const WORLD_WIDTH = 100
 const WORLD_HEIGHT = 30
 const SPEED_SCALE_INCREASE = 0.00001
+const AUTO_JUMP_DISTANCE = 150
 
 const worldElem = document.querySelector("[data-world]")
 const scoreElem = document.querySelector("[data-score]")
@@ -25,11 +27,13 @@ function update(time) {
   }
   const delta = time - lastTime
 
+  updateCloud(delta, speedScale)
   updateGround(delta, speedScale)
   updateDino(delta, speedScale)
   updateCactus(delta, speedScale)
   updateSpeedScale(delta)
   updateScore(delta)
+  autoJump()
   if (checkLose()) return handleLose()
 
   lastTime = time
@@ -63,6 +67,7 @@ function handleStart() {
   lastTime = null
   speedScale = 1
   score = 0
+  setupCloud()
   setupGround()
   setupDino()
   setupCactus()
@@ -76,6 +81,18 @@ function handleLose() {
     document.addEventListener("keydown", handleStart, { once: true })
     startScreenElem.classList.remove("hide")
   }, 100)
+}
+
+function autoJump() {
+  const cactusRects = getCactusRects()
+  const dinoRect = getDinoRect()
+
+  cactusRects.forEach(cactusRect => {
+    const distance = cactusRect.left - dinoRect.right
+    if (distance > 0 && distance < AUTO_JUMP_DISTANCE) {
+      triggerJump()
+    }
+  })
 }
 
 function setPixelToWorldScale() {
