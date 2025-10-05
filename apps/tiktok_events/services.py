@@ -15,7 +15,7 @@ from TikTokLive.events import (
     JoinEvent,
     SubscribeEvent,
 )
-from .models import LiveEvent
+from .models import LiveEvent, LiveSession
 
 
 def clean_text(text: str) -> str:
@@ -81,11 +81,13 @@ class StreakTracker:
 class TikTokEventCapture:
     """Servicio para capturar eventos de TikTok Live y guardarlos en la BD"""
 
-    def __init__(self, streamer_username: str):
+    def __init__(self, streamer_username: str, session_name: Optional[str] = None):
         self.streamer_username = streamer_username
+        self.session_name = session_name
         self.client = TikTokLiveClient(unique_id=f"@{streamer_username}")
         self.room_id = None
         self.streak_tracker = StreakTracker()
+        self.session = None  # Se creará al conectar
 
         # Registrar eventos
         self._register_handlers()
@@ -104,7 +106,16 @@ class TikTokEventCapture:
     async def on_connect(self, event: ConnectEvent):
         """Se ejecuta al conectarse al live"""
         self.room_id = event.room_id
+
+        # Crear nueva sesión
+        self.session = await sync_to_async(LiveSession.objects.create)(
+            name=self.session_name,
+            room_id=self.room_id,
+            streamer_unique_id=self.streamer_username
+        )
+
         print(f"✅ Conectado a @{event.unique_id} - Room ID: {event.room_id}")
+        print(f"📝 Sesión creada: #{self.session.id} - {self.session.name or 'Sin nombre'}")
 
     async def on_comment(self, event: CommentEvent):
         """Captura eventos de comentarios"""
@@ -125,6 +136,7 @@ class TikTokEventCapture:
         }
 
         await sync_to_async(LiveEvent.objects.create)(
+            session=self.session,
             event_type='CommentEvent',
             timestamp=timezone.now(),
             room_id=self.room_id,
@@ -171,6 +183,7 @@ class TikTokEventCapture:
         }
 
         await sync_to_async(LiveEvent.objects.create)(
+            session=self.session,
             event_type='GiftEvent',
             timestamp=timezone.now(),
             room_id=self.room_id,
@@ -199,6 +212,7 @@ class TikTokEventCapture:
         }
 
         await sync_to_async(LiveEvent.objects.create)(
+            session=self.session,
             event_type='LikeEvent',
             timestamp=timezone.now(),
             room_id=self.room_id,
@@ -221,6 +235,7 @@ class TikTokEventCapture:
         }
 
         await sync_to_async(LiveEvent.objects.create)(
+            session=self.session,
             event_type='ShareEvent',
             timestamp=timezone.now(),
             room_id=self.room_id,
@@ -242,6 +257,7 @@ class TikTokEventCapture:
         }
 
         await sync_to_async(LiveEvent.objects.create)(
+            session=self.session,
             event_type='FollowEvent',
             timestamp=timezone.now(),
             room_id=self.room_id,
@@ -263,6 +279,7 @@ class TikTokEventCapture:
         }
 
         await sync_to_async(LiveEvent.objects.create)(
+            session=self.session,
             event_type='JoinEvent',
             timestamp=timezone.now(),
             room_id=self.room_id,
@@ -284,6 +301,7 @@ class TikTokEventCapture:
         }
 
         await sync_to_async(LiveEvent.objects.create)(
+            session=self.session,
             event_type='SubscribeEvent',
             timestamp=timezone.now(),
             room_id=self.room_id,
@@ -298,4 +316,17 @@ class TikTokEventCapture:
     def start(self):
         """Inicia la captura de eventos"""
         print(f"🎬 Iniciando captura de eventos para @{self.streamer_username}...")
-        self.client.run()
+        try:
+            self.client.run()
+        except KeyboardInterrupt:
+            # Finalizar la sesión al detener
+            if self.session:
+                self.session.end_session(status='completed')
+                print(f"\n✅ Sesión #{self.session.id} finalizada - Duración: {self.session.get_duration_display()}")
+            raise
+        except Exception as e:
+            # Marcar sesión como abortada si hay error
+            if self.session:
+                self.session.end_session(status='aborted')
+                print(f"\n❌ Sesión #{self.session.id} abortada por error")
+            raise

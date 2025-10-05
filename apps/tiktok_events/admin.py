@@ -1,7 +1,84 @@
 from django.contrib import admin
 from django.utils.html import format_html
 import json
-from .models import LiveEvent
+from .models import LiveEvent, LiveSession
+
+
+@admin.register(LiveSession)
+class LiveSessionAdmin(admin.ModelAdmin):
+    list_display = [
+        'id',
+        'name_or_id',
+        'streamer_unique_id',
+        'status_badge',
+        'started_at',
+        'ended_at',
+        'duration_display',
+        'total_events'
+    ]
+    list_filter = [
+        'status',
+        'started_at',
+        'streamer_unique_id'
+    ]
+    search_fields = [
+        'name',
+        'streamer_unique_id',
+        'room_id',
+        'notes'
+    ]
+    readonly_fields = [
+        'id',
+        'started_at',
+        'total_events',
+        'duration_display'
+    ]
+    ordering = ['-started_at']
+    date_hierarchy = 'started_at'
+
+    def name_or_id(self, obj):
+        """Muestra el nombre o ID de la sesión"""
+        return obj.name if obj.name else f"Session #{obj.id}"
+    name_or_id.short_description = 'Sesión'
+
+    def status_badge(self, obj):
+        """Muestra badge de estado"""
+        color_map = {
+            'active': '#28a745',
+            'completed': '#007bff',
+            'aborted': '#dc3545'
+        }
+        color = color_map.get(obj.status, '#6c757d')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 3px; font-size: 11px;">{}</span>',
+            color,
+            obj.status.upper()
+        )
+    status_badge.short_description = 'Estado'
+
+    def duration_display(self, obj):
+        """Muestra la duración"""
+        return obj.get_duration_display()
+    duration_display.short_description = 'Duración'
+
+    fieldsets = (
+        ('Información General', {
+            'fields': ('id', 'name', 'status')
+        }),
+        ('Contexto del Live', {
+            'fields': ('room_id', 'streamer_unique_id')
+        }),
+        ('Tiempo', {
+            'fields': ('started_at', 'ended_at', 'duration_display')
+        }),
+        ('Estadísticas', {
+            'fields': ('total_events',)
+        }),
+        ('Notas', {
+            'fields': ('notes',),
+            'classes': ('collapse',)
+        }),
+    )
 
 
 @admin.register(LiveEvent)
@@ -11,6 +88,7 @@ class LiveEventAdmin(admin.ModelAdmin):
         'event_type',
         'user_info',
         'timestamp',
+        'session',
         'room_id',
         'streak_badge',
         'created_at'
@@ -20,7 +98,8 @@ class LiveEventAdmin(admin.ModelAdmin):
         'is_streaking',
         'streak_status',
         'timestamp',
-        'streamer_unique_id'
+        'streamer_unique_id',
+        'session'
     ]
     search_fields = [
         'user_unique_id',
@@ -32,6 +111,7 @@ class LiveEventAdmin(admin.ModelAdmin):
         'id',
         'event_type',
         'timestamp',
+        'session',
         'room_id',
         'streamer_unique_id',
         'user_id',
@@ -79,6 +159,9 @@ class LiveEventAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Información del Evento', {
             'fields': ('id', 'event_type', 'timestamp', 'created_at')
+        }),
+        ('Sesión', {
+            'fields': ('session',)
         }),
         ('Contexto del Live', {
             'fields': ('room_id', 'streamer_unique_id')

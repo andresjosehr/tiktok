@@ -15,10 +15,17 @@ class Command(BaseCommand):
             help='Username del streamer de TikTok (sin @). Si no se proporciona, usa tiktok_user de Config',
             required=False
         )
+        parser.add_argument(
+            '--session-name',
+            type=str,
+            help='Nombre opcional para identificar esta sesión',
+            required=False
+        )
 
     def handle(self, *args, **options):
         # Obtener username del argumento o de la configuración
         username = options.get('username')
+        session_name = options.get('session_name')
 
         if not username:
             username = Config.get_value('tiktok_user')
@@ -45,9 +52,13 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(f'📡 Iniciando captura de eventos para @{username}')
         )
+        if session_name:
+            self.stdout.write(
+                self.style.SUCCESS(f'📝 Nombre de sesión: {session_name}')
+            )
 
         try:
-            capture = TikTokEventCapture(username)
+            capture = TikTokEventCapture(username, session_name=session_name)
             capture.start()
         except KeyboardInterrupt:
             self.stdout.write(
