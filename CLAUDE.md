@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Django-based system for capturing TikTok Live events and processing them through a queue system with multiple services. The system uses Docker for containerization.
+Django-based system for capturing TikTok Live events and processing them through a queue system with multiple services. The system uses Docker for containerization and includes integrations with Chrome automation, ElevenLabs TTS, and generic LLM providers.
 
 ## Key Commands
 
@@ -18,10 +18,14 @@ docker-compose exec web python manage.py makemigrations
 # Initialize system with default services (DinoChrome, Overlays) and config
 docker-compose exec web python manage.py populate_initial_data
 
-# Capture TikTok Live events (creates new session each run)
+# Start complete system (recommended) - Runs workers + TikTok capture
+docker-compose exec web python manage.py start_event_system [--session-name NAME] [--verbose]
+
+# Individual commands (advanced usage):
+# - Capture TikTok Live events only (creates new session each run)
 docker-compose exec web python manage.py capture_tiktok_live [--username NAME] [--session-name NAME]
 
-# Process queued events with workers
+# - Process queued events with workers only
 docker-compose exec web python manage.py run_queue_workers [--service SLUG] [--verbose]
 
 # Database reset (drops all tables)
@@ -122,7 +126,11 @@ When queue is full (size >= max_queue_size):
 - `apps/tiktok_events`: Event capture from TikTok Live
 - `apps/queue_system`: Generic queue system (independent from TikTok)
 - `apps/app_config`: Key-value config store (Config model with meta_key/meta_value)
-- `apps/test_service`: Example services (DummyService, SlowService, VerboseService)
+- `apps/services/dinochrome`: Chrome automation service with DinoChrome game (SYNC mode)
+- `apps/services/overlays`: Visual overlays service (ASYNC mode)
+- `apps/integrations/elevenlabs`: ElevenLabs TTS integration (text-to-speech + audio playback)
+- `apps/integrations/llm`: Generic LLM client (OpenAI-compatible: DeepSeek, Claude, GPT, LMStudio, etc.)
+- `apps/base_models`: Abstract BaseModel with timestamps (created_at, updated_at)
 
 ## Data Population
 
@@ -139,6 +147,42 @@ When queue is full (size >= max_queue_size):
   - LikeEvent: P3/P2 (discardable)
   - JoinEvent: P2/P3 (DinoChrome disabled, Overlays enabled, discardable)
 
+## Services & Integrations
+
+### DinoChrome Service (`apps/services/dinochrome/DinoChromeService.py`)
+- Controls Chrome browser with Selenium WebDriver
+- Loads DinoChrome game at http://web:8000/dino/
+- Auto-plays the game with event-based controls
+- On GiftEvent (Rosa/Rose): restarts game + plays ElevenLabs TTS (SYNC with `wait=True`)
+- Methods: `initialize_browser()`, `restart()`, `get_score()`, `get_high_score()`, `close()`
+
+### Overlays Service (`apps/services/overlays/services.py`)
+- Displays visual overlays (simulated with timeouts)
+- Processes all events in ASYNC mode (parallel)
+- Different timeouts per event type (gifts: 1.2s, comments: 0.4s, likes: 0.2s)
+
+### ElevenLabs Integration (`apps/integrations/elevenlabs/client.py`)
+- Text-to-speech via ElevenLabs API
+- API key stored in Config.objects.get(meta_key='elevenlabs_api')
+- Audio saved to MEDIA_ROOT/elevenlabs/
+- Playback via PulseAudio (paplay command in Docker)
+- Key methods:
+  - `text_to_speech(text, voice_id, model_id) -> bytes`
+  - `text_to_speech_and_save(text, play_audio=False, wait=False) -> str`
+  - `play_audio(file_path, wait=False) -> bool` (wait=True for SYNC blocking playback)
+
+### LLM Integration (`apps/integrations/llm/client.py`)
+- Generic OpenAI-compatible LLM client
+- Supports: DeepSeek, Claude, GPT, LMStudio, Ollama, etc.
+- Config keys: `llm_url`, `llm_key`, `llm_model`, `llm_system_prompt`
+- Methods:
+  - `chat(user_message, system_message=None, max_tokens=150, temperature=0.7) -> str`
+  - `generate_response(event_type, username, event_data) -> str` (auto-formats prompts per event type)
+
+### Base Models (`apps/base_models.py`)
+- `BaseModel`: Abstract model with `created_at` and `updated_at` timestamps
+- All models should inherit from BaseModel
+
 ## Common Pitfalls
 
 - EventDispatcher must be called AFTER LiveEvent.create() to ensure event has ID
@@ -147,3 +191,6 @@ When queue is full (size >= max_queue_size):
 - Queue items remain in 'pending' state if no workers are running
 - SYNC services can create bottlenecks if process_event() is slow
 - MySQL utf8mb3 charset limits emoji support - use clean_text() for user input
+- ElevenLabs playback: use `wait=True` in SYNC services to block until audio finishes
+- LLM integration requires proper Config entries (llm_url, llm_key, llm_model)
+- Chrome automation requires xvfb/display setup in Docker for headless operation

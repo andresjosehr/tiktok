@@ -120,13 +120,45 @@ El sistema está diseñado con 3 componentes principales:
 - Almacena configuraciones key-value del sistema
 - Ejemplo: `tiktok_user` - username del streamer
 
-### `apps/test_service`
-**Servicios de ejemplo/testing**
+### `apps/services/dinochrome`
+**Servicio de automatización de Chrome - DinoChrome Game**
 
-Tres servicios de demostración:
-- `DummyService` - Simple logging
-- `SlowService` - Simula procesamiento lento
-- `VerboseService` - Logs super detallados
+- Control de Chrome mediante Selenium WebDriver
+- Juego DinoChrome (clon de Chrome Dino) disponible en `/dino/`
+- Auto-play con IA integrada
+- Procesamiento SYNC (acciones secuenciales)
+- **Funcionalidad destacada**: Al recibir regalo "Rosa", reinicia el juego y reproduce audio con ElevenLabs TTS
+
+### `apps/services/overlays`
+**Servicio de overlays visuales**
+
+- Manejo de overlays para streaming/OBS
+- Procesamiento ASYNC (eventos en paralelo)
+- Diferentes tiempos de display por tipo de evento
+- Ideal para notificaciones visuales durante streams
+
+### `apps/integrations/elevenlabs`
+**Integración con ElevenLabs TTS**
+
+- Text-to-speech de alta calidad
+- API key configurable vía `Config` (meta_key: `elevenlabs_api`)
+- Almacenamiento de audio en `media/elevenlabs/`
+- Reproducción mediante PulseAudio (paplay en Docker)
+- Soporte para reproducción síncrona (wait=True) y asíncrona
+
+### `apps/integrations/llm`
+**Cliente genérico de LLM**
+
+- Compatible con APIs formato OpenAI (DeepSeek, Claude, GPT, LMStudio, Ollama)
+- Configuración vía `Config`: `llm_url`, `llm_key`, `llm_model`, `llm_system_prompt`
+- Generación automática de respuestas por tipo de evento
+- Ideal para chatbots y respuestas automáticas
+
+### `apps/base_models`
+**Modelos base del proyecto**
+
+- `BaseModel`: Modelo abstracto con timestamps automáticos (created_at, updated_at)
+- Todos los modelos del proyecto heredan de esta clase
 
 ---
 
@@ -351,7 +383,8 @@ docker-compose exec web python manage.py run_queue_workers --service mi_servicio
 │   │   ├── services.py             # TikTokEventCapture
 │   │   ├── admin.py                # Admin de eventos
 │   │   └── management/commands/
-│   │       └── capture_tiktok_live.py
+│   │       ├── capture_tiktok_live.py
+│   │       └── start_event_system.py  # Sistema completo
 │   │
 │   ├── queue_system/               # Sistema de colas
 │   │   ├── models.py               # Service, ServiceEventConfig, EventQueue
@@ -363,20 +396,41 @@ docker-compose exec web python manage.py run_queue_workers --service mi_servicio
 │   │       ├── populate_initial_data.py
 │   │       └── run_queue_workers.py
 │   │
-│   ├── app_config/                 # Configuración general
-│   │   └── models.py               # Config (key-value)
+│   ├── services/                   # Servicios implementados
+│   │   ├── dinochrome/             # Chrome automation + DinoChrome game
+│   │   │   ├── DinoChromeService.py
+│   │   │   ├── ChromeService.py    # Selenium WebDriver wrapper
+│   │   │   └── dino-game/          # Juego DinoChrome (Django app)
+│   │   └── overlays/               # Overlays visuales
+│   │       └── services.py         # OverlaysService
 │   │
-│   └── test_service/               # Servicios de testing
-│       └── services.py             # DummyService, SlowService, VerboseService
+│   ├── integrations/               # Integraciones externas
+│   │   ├── elevenlabs/             # Text-to-speech
+│   │   │   ├── client.py           # ElevenLabsClient
+│   │   │   ├── views.py            # API endpoints
+│   │   │   └── urls.py
+│   │   └── llm/                    # LLM genérico
+│   │       ├── client.py           # LLMClient (OpenAI-compatible)
+│   │       ├── services.py         # LLMService
+│   │       └── models.py
+│   │
+│   ├── app_config/                 # Configuración general
+│   │   └── models.py               # Config (key-value storage)
+│   │
+│   └── base_models.py              # BaseModel con timestamps
 │
 ├── config/                         # Configuración Django
 │   ├── settings.py
 │   └── urls.py
 │
+├── media/                          # Archivos multimedia
+│   └── elevenlabs/                 # Audio generado por TTS
+│
 ├── docker-compose.yml              # Docker Compose
 ├── Dockerfile                      # Imagen Django
 ├── requirements.txt                # Dependencias Python
 ├── .env                            # Variables de entorno
+├── CLAUDE.md                       # Instrucciones para Claude Code
 └── manage.py
 ```
 
@@ -573,6 +627,53 @@ docker-compose down -v
 
 ---
 
+## 🔌 Integraciones Disponibles
+
+### ElevenLabs TTS
+1. Obtener API key de https://elevenlabs.io
+2. Configurar en Django admin: `Config` → `elevenlabs_api`
+3. Usar en servicios:
+```python
+from apps.integrations.elevenlabs.client import ElevenLabsClient
+
+client = ElevenLabsClient()
+client.text_to_speech_and_save(
+    "Texto a convertir",
+    play_audio=True,
+    wait=True  # SYNC: espera a que termine
+)
+```
+
+### LLM (DeepSeek, Claude, GPT, LMStudio)
+1. Configurar en Django admin:
+   - `llm_url`: https://api.deepseek.com/v1/chat/completions (o tu endpoint)
+   - `llm_key`: Tu API key
+   - `llm_model`: deepseek-chat (o tu modelo)
+   - `llm_system_prompt`: Prompt del sistema
+2. Usar en servicios:
+```python
+from apps.integrations.llm.client import LLMClient
+
+client = LLMClient()
+response = client.chat("Tu mensaje aquí")
+```
+
+### Chrome Automation (DinoChrome)
+- Ya configurado en DinoChrome service
+- Juego disponible en http://localhost:8000/dino/
+- Auto-play habilitado
+- Controlable mediante `ChromeService`:
+```python
+from apps.services.dinochrome.ChromeService import ChromeService
+
+chrome = ChromeService()
+chrome.initialize_browser(headless=False)
+chrome.restart()  # Reiniciar juego
+score = chrome.get_score()  # Obtener puntaje
+```
+
+---
+
 ## 🚀 Próximos Pasos
 
 1. Crear tus propios servicios personalizados
@@ -580,5 +681,8 @@ docker-compose down -v
 3. Ajustar tamaños de cola por servicio
 4. Implementar lógica específica en `process_event()`
 5. Monitorear el admin para ver estadísticas de la cola
+6. Integrar ElevenLabs para respuestas de voz
+7. Configurar LLM para chatbot automático
+8. Personalizar acciones en DinoChrome según eventos
 
 ¡El sistema está listo para procesar eventos de TikTok Live! 🎉
