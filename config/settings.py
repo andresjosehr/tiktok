@@ -42,6 +42,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # Apps
+    'apps.tiktok_events',
+    'apps.app_config',
 ]
 
 MIDDLEWARE = [
