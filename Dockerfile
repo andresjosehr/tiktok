@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     wget \
     curl \
+    pulseaudio-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Instalar Chrome, xdotool y dependencias

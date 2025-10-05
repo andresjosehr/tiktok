@@ -111,7 +111,7 @@ document.getElementById('tts-form').addEventListener('submit', function(e) {
             resultDiv.style.backgroundColor = '#d4edda';
             resultDiv.style.border = '1px solid #28a745';
             resultDiv.style.color = '#155724';
-            resultDiv.innerHTML = '✅ ' + data.message + '<br><audio controls autoplay style="margin-top: 10px;"><source src="' + data.audio_url + '" type="audio/mpeg"></audio>';
+            resultDiv.textContent = '✅ ' + data.message;
         } else {
             resultDiv.style.backgroundColor = '#f8d7da';
             resultDiv.style.border = '1px solid #dc3545';

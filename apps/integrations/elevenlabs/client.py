@@ -5,6 +5,7 @@ Documentación: https://elevenlabs.io/docs/api-reference/text-to-speech
 """
 
 import os
+import subprocess
 import requests
 from django.conf import settings
 from apps.app_config.models import Config
@@ -72,7 +73,7 @@ class ElevenLabsClient:
             print(f"[ELEVENLABS] ❌ Exception en text_to_speech: {str(e)}")
             return None
 
-    def text_to_speech_and_save(self, text, voice_id="21m00Tcm4TlvDq8ikWAM", model_id="eleven_monolingual_v1"):
+    def text_to_speech_and_save(self, text, voice_id="21m00Tcm4TlvDq8ikWAM", model_id="eleven_monolingual_v1", play_audio=False):
         """
         Convierte texto a audio y lo guarda en un archivo
 
@@ -80,6 +81,7 @@ class ElevenLabsClient:
             text (str): Texto a convertir
             voice_id (str): ID de la voz a usar (default: Rachel)
             model_id (str): Modelo de TTS a usar
+            play_audio (bool): Si es True, reproduce el audio automáticamente
 
         Returns:
             str: Ruta del archivo generado o None si falla
@@ -87,7 +89,10 @@ class ElevenLabsClient:
         audio_data = self.text_to_speech(text, voice_id, model_id)
 
         if audio_data:
-            return self.save_audio(audio_data)
+            file_path = self.save_audio(audio_data)
+            if file_path and play_audio:
+                self.play_audio(file_path)
+            return file_path
         else:
             return None
 
@@ -132,6 +137,32 @@ class ElevenLabsClient:
             print(f"[ELEVENLABS] ❌ Error guardando audio: {str(e)}")
             return None
 
+    def play_audio(self, file_path):
+        """
+        Reproduce un archivo de audio usando paplay (PulseAudio)
+
+        Args:
+            file_path (str): Ruta relativa del archivo desde MEDIA_ROOT
+
+        Returns:
+            bool: True si se inició la reproducción, False si falla
+        """
+        try:
+            # Construir ruta absoluta
+            absolute_path = os.path.join(settings.MEDIA_ROOT, file_path)
+
+            if not os.path.exists(absolute_path):
+                print(f"[ELEVENLABS] ❌ Archivo no encontrado: {absolute_path}")
+                return False
+
+            # Reproducir audio usando paplay en background
+            subprocess.Popen(['paplay', absolute_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            print(f"[ELEVENLABS] 🔊 Reproduciendo audio: {file_path}")
+            return True
+
+        except Exception as e:
+            print(f"[ELEVENLABS] ❌ Error reproduciendo audio: {str(e)}")
+            return False
 
     def get_voices(self):
         """

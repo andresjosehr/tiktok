@@ -28,6 +28,7 @@ services:
     volumes:
       - .:/app
       - /tmp/.X11-unix:/tmp/.X11-unix
+      - /mnt/wslg:/mnt/wslg
     ports:
       - "8000:8000"
     environment:
@@ -37,6 +38,8 @@ services:
       DB_HOST: db
       DB_PORT: 3306
       DISPLAY: ${DISPLAY}
+      PULSE_SERVER: unix:/mnt/wslg/PulseServer
+      XDG_RUNTIME_DIR: /mnt/wslg/runtime-dir
     depends_on:
       db:
         condition: service_healthy

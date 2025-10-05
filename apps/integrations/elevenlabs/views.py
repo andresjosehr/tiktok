@@ -15,7 +15,7 @@ def test_tts_view(request):
 
         try:
             client = ElevenLabsClient()
-            audio_path = client.text_to_speech_and_save(text)
+            audio_path = client.text_to_speech_and_save(text, play_audio=True)
 
             if audio_path:
                 # Construir URL del archivo de audio
@@ -23,7 +23,7 @@ def test_tts_view(request):
                 audio_url = f"{settings.MEDIA_URL}{audio_path}"
                 return JsonResponse({
                     'success': True,
-                    'message': f'Audio generado: "{text}"',
+                    'message': f'Audio generado y reproduciendo: "{text}"',
                     'audio_url': audio_url
                 })
             else:
