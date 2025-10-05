@@ -105,77 +105,92 @@ class DinoChromeService(BaseQueueService):
         gift_data = live_event.event_data.get('gift', {})
         gift_name = gift_data.get('name', 'Unknown')
         diamonds = gift_data.get('diamond_count', 0)
+        user = live_event.user_nickname or live_event.user_unique_id
 
         print(f"   🎁 Regalo: {gift_name} ({diamonds} diamantes)")
         print(f"   ⚙️  Acción Chrome: Mostrar animación de regalo")
+        logger.info(f"Procesando regalo: {gift_name} ({diamonds} diamantes) de {user}")
 
         # Simular procesamiento con timeout
         time.sleep(0.8)
 
         print(f"   ✅ Regalo procesado")
-        logger.info(f"Regalo procesado: {gift_name} de {live_event.user_nickname}")
+        logger.info(f"Regalo procesado exitosamente: {gift_name} de {user}")
         return True
 
     def _process_comment(self, live_event):
         """Procesa evento de comentario"""
         comment = live_event.event_data.get('comment', '')
+        user = live_event.user_nickname or live_event.user_unique_id
 
         print(f"   💬 Comentario: {comment[:50]}{'...' if len(comment) > 50 else ''}")
         print(f"   ⚙️  Acción Chrome: Mostrar comentario en overlay")
+        logger.info(f"Procesando comentario de {user}: {comment[:100]}")
 
         # Simular procesamiento
         time.sleep(0.3)
 
         print(f"   ✅ Comentario procesado")
-        logger.info(f"Comentario procesado de {live_event.user_nickname}")
+        logger.info(f"Comentario procesado exitosamente de {user}")
         return True
 
     def _process_like(self, live_event):
         """Procesa evento de like"""
         like_count = live_event.event_data.get('like_count', 1)
+        user = live_event.user_nickname or live_event.user_unique_id
 
         print(f"   ❤️  Likes: {like_count}")
         print(f"   ⚙️  Acción Chrome: Actualizar contador de likes")
+        logger.info(f"Procesando {like_count} like(s) de {user}")
 
         # Simular procesamiento
         time.sleep(0.2)
 
         print(f"   ✅ Like procesado")
-        logger.info(f"Like procesado de {live_event.user_nickname}")
+        logger.debug(f"Like procesado exitosamente de {user}")
         return True
 
     def _process_share(self, live_event):
         """Procesa evento de compartir"""
+        user = live_event.user_nickname or live_event.user_unique_id
+
         print(f"   📤 Compartido")
         print(f"   ⚙️  Acción Chrome: Mostrar notificación de share")
+        logger.info(f"Procesando share de {user}")
 
         # Simular procesamiento
         time.sleep(0.5)
 
         print(f"   ✅ Share procesado")
-        logger.info(f"Share procesado de {live_event.user_nickname}")
+        logger.info(f"Share procesado exitosamente de {user}")
         return True
 
     def _process_follow(self, live_event):
         """Procesa evento de follow"""
+        user = live_event.user_nickname or live_event.user_unique_id
+
         print(f"   👤 Nuevo seguidor")
         print(f"   ⚙️  Acción Chrome: Mostrar animación de follow")
+        logger.info(f"Procesando follow de {user}")
 
         # Simular procesamiento
         time.sleep(0.6)
 
         print(f"   ✅ Follow procesado")
-        logger.info(f"Follow procesado de {live_event.user_nickname}")
+        logger.info(f"Follow procesado exitosamente de {user}")
         return True
 
     def _process_subscribe(self, live_event):
         """Procesa evento de suscripción"""
+        user = live_event.user_nickname or live_event.user_unique_id
+
         print(f"   ⭐ Nueva suscripción")
         print(f"   ⚙️  Acción Chrome: Mostrar animación de suscripción")
+        logger.info(f"Procesando suscripción de {user}")
 
         # Simular procesamiento
         time.sleep(0.7)
 
         print(f"   ✅ Suscripción procesada")
-        logger.info(f"Suscripción procesada de {live_event.user_nickname}")
+        logger.info(f"Suscripción procesada exitosamente de {user}")
         return True

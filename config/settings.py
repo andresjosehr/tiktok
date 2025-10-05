@@ -134,3 +134,83 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{levelname}] {asctime} {name} - {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+        'simple': {
+            'format': '[{levelname}] {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'file_general': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'general.log',
+            'formatter': 'verbose',
+        },
+        'file_dinochrome': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'dinochrome.log',
+            'formatter': 'verbose',
+        },
+        'file_overlays': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'overlays.log',
+            'formatter': 'verbose',
+        },
+        'file_tiktok': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'tiktok_events.log',
+            'formatter': 'verbose',
+        },
+        'file_queue': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'queue_system.log',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file_general'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'dinochrome': {
+            'handlers': ['console', 'file_dinochrome'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'overlays': {
+            'handlers': ['console', 'file_overlays'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'tiktok_events': {
+            'handlers': ['console', 'file_tiktok'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'queue_system': {
+            'handlers': ['console', 'file_queue'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
