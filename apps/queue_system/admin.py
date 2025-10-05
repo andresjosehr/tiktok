@@ -6,7 +6,7 @@ from .models import Service, ServiceEventConfig, EventQueue
 class ServiceEventConfigInline(admin.TabularInline):
     model = ServiceEventConfig
     extra = 1
-    fields = ['event_type', 'is_enabled', 'priority', 'is_async', 'is_discardable']
+    fields = ['event_type', 'is_enabled', 'priority', 'is_async', 'is_discardable', 'is_stackable']
     ordering = ['-priority', 'event_type']
 
 
@@ -76,9 +76,10 @@ class ServiceEventConfigAdmin(admin.ModelAdmin):
         'enabled_badge',
         'priority_badge',
         'mode_badge',
-        'discardable_badge'
+        'discardable_badge',
+        'stackable_badge'
     ]
-    list_filter = ['service', 'event_type', 'is_enabled', 'is_async', 'is_discardable', 'priority']
+    list_filter = ['service', 'event_type', 'is_enabled', 'is_async', 'is_discardable', 'is_stackable', 'priority']
     search_fields = ['service__name', 'event_type']
     ordering = ['service', '-priority', 'event_type']
 
@@ -87,7 +88,7 @@ class ServiceEventConfigAdmin(admin.ModelAdmin):
             'fields': ('service', 'event_type', 'is_enabled')
         }),
         ('Configuración de Procesamiento', {
-            'fields': ('priority', 'is_async', 'is_discardable')
+            'fields': ('priority', 'is_async', 'is_discardable', 'is_stackable')
         }),
     )
 
@@ -131,6 +132,13 @@ class ServiceEventConfigAdmin(admin.ModelAdmin):
             return format_html('<span style="color: #ffc107;">⚠️ Descartable</span>')
         return format_html('<span style="color: #dc3545;">🔒 No descartable</span>')
     discardable_badge.short_description = 'Descarte'
+
+    def stackable_badge(self, obj):
+        """Badge de stackable"""
+        if obj.is_stackable:
+            return format_html('<span style="color: #28a745;">📚 Stackable</span>')
+        return format_html('<span style="color: #007bff;">🎯 Solo al finalizar</span>')
+    stackable_badge.short_description = 'Racha'
 
 
 @admin.register(EventQueue)

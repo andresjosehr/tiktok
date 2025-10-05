@@ -85,6 +85,10 @@ class ServiceEventConfig(BaseModel):
         default=True,
         help_text="Si este evento puede descartarse cuando la cola está llena"
     )
+    is_stackable = models.BooleanField(
+        default=True,
+        help_text="Si se procesa cada regalo de la racha (True) o solo al finalizar la racha (False)"
+    )
 
     class Meta:
         db_table = 'service_event_configs'

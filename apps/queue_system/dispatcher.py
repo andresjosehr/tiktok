@@ -75,13 +75,22 @@ class EventDispatcher:
         """
         service = config.service
 
-        # 1. Verificar tamaño de cola
+        # 1. Filtrar por is_stackable para GiftEvent
+        if live_event.event_type == 'GiftEvent' and not config.is_stackable:
+            # Solo procesar si la racha ha finalizado (streak_status == 'end')
+            if live_event.streak_status != 'end':
+                return {
+                    'status': 'skipped',
+                    'reason': 'Evento no stackable - esperando fin de racha'
+                }
+
+        # 2. Verificar tamaño de cola
         current_queue_size = EventQueue.objects.filter(
             service=service,
             status='pending'
         ).count()
 
-        # 2. Si hay espacio, encolar directamente
+        # 3. Si hay espacio, encolar directamente
         if current_queue_size < service.max_queue_size:
             EventDispatcher._enqueue_event(live_event, config)
             return {'status': 'enqueued'}

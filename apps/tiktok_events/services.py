@@ -115,8 +115,8 @@ class TikTokEventCapture:
             streamer_unique_id=self.streamer_username
         )
 
-        print(f"✅ Conectado a @{event.unique_id} - Room ID: {event.room_id}")
-        print(f"📝 Sesión creada: #{self.session.id} - {self.session.name or 'Sin nombre'}")
+        # print(f"✅ Conectado a @{event.unique_id} - Room ID: {event.room_id}")
+        # print(f"📝 Sesión creada: #{self.session.id} - {self.session.name or 'Sin nombre'}")
 
     async def on_comment(self, event: CommentEvent):
         """Captura eventos de comentarios"""
@@ -151,7 +151,7 @@ class TikTokEventCapture:
         # Distribuir a las colas de servicios
         await sync_to_async(EventDispatcher.dispatch)(live_event)
 
-        print(f"💬 {event.user.unique_id}: {event.comment}")
+        # print(f"💬 {event.user.unique_id}: {event.comment}")
 
     async def on_gift(self, event: GiftEvent):
         """Captura eventos de regalos con soporte de rachas"""
@@ -231,7 +231,7 @@ class TikTokEventCapture:
             event_data=event_data
         )
         await sync_to_async(EventDispatcher.dispatch)(live_event)
-        print(f"❤️ {event.user.unique_id} dio like")
+        # print(f"❤️ {event.user.unique_id} dio like")
 
     async def on_share(self, event: ShareEvent):
         """Captura eventos de compartir"""
@@ -255,7 +255,7 @@ class TikTokEventCapture:
             event_data=event_data
         )
         await sync_to_async(EventDispatcher.dispatch)(live_event)
-        print(f"📤 {event.user.unique_id} compartió el live")
+        # print(f"📤 {event.user.unique_id} compartió el live")
 
     async def on_follow(self, event: FollowEvent):
         """Captura eventos de follow"""
@@ -278,7 +278,7 @@ class TikTokEventCapture:
             event_data=event_data
         )
         await sync_to_async(EventDispatcher.dispatch)(live_event)
-        print(f"👤 {event.user.unique_id} siguió al streamer")
+        # print(f"👤 {event.user.unique_id} siguió al streamer")
 
     async def on_join(self, event: JoinEvent):
         """Captura eventos de usuarios uniéndose"""
@@ -301,7 +301,7 @@ class TikTokEventCapture:
             event_data=event_data
         )
         await sync_to_async(EventDispatcher.dispatch)(live_event)
-        print(f"🚪 {event.user.unique_id} se unió al live")
+        # print(f"🚪 {event.user.unique_id} se unió al live")
 
     async def on_subscribe(self, event: SubscribeEvent):
         """Captura eventos de suscripciones"""

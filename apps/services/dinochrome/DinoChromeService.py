@@ -7,6 +7,7 @@ Actualmente solo simula las acciones con timeouts y logs.
 
 from apps.queue_system.base_service import BaseQueueService
 from apps.services.dinochrome.ChromeService import ChromeService
+from apps.integrations.elevenlabs.client import ElevenLabsClient
 
 
 class DinoChromeService(BaseQueueService):
@@ -22,6 +23,7 @@ class DinoChromeService(BaseQueueService):
     def __init__(self):
         self.session_start = None
         self.chrome = ChromeService()
+        self.elevenlabs = ElevenLabsClient()
 
     def on_start(self):
         """Se ejecuta al iniciar el worker"""
@@ -82,9 +84,22 @@ class DinoChromeService(BaseQueueService):
         event_data = live_event.event_data
         gift_name = event_data.get('gift', {}).get('name', '').lower()
 
-        # Si es una rosa, reiniciar el juego
+        # Si es una rosa, reiniciar el juego y reproducir audio
         if 'rose' in gift_name or 'rosa' in gift_name:
+            print(f"[DINOCHROME] 🌹 Rosa detectada! Reiniciando juego...")
+
+            # Primero reiniciar el juego
             self.chrome.restart()
+
+            # Luego reproducir audio de forma SÍNCRONA (espera a que termine)
+            print(f"[DINOCHROME] 🔊 Reproduciendo audio...")
+            self.elevenlabs.text_to_speech_and_save(
+                "No no no no, me lo reiniciaste, ahora que voy a hacer? Estaba tan metido en mi juego y vienes tu y me lo reinicias, que cagada, te quiero mataar",
+                play_audio=True,
+                wait=True  # IMPORTANTE: Espera a que termine el audio
+            )
+
+            print(f"[DINOCHROME] ✅ Audio terminado")
             return True
 
         return True

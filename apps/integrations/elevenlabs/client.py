@@ -73,7 +73,7 @@ class ElevenLabsClient:
             print(f"[ELEVENLABS] ❌ Exception en text_to_speech: {str(e)}")
             return None
 
-    def text_to_speech_and_save(self, text, voice_id="21m00Tcm4TlvDq8ikWAM", model_id="eleven_monolingual_v1", play_audio=False):
+    def text_to_speech_and_save(self, text, voice_id="21m00Tcm4TlvDq8ikWAM", model_id="eleven_monolingual_v1", play_audio=False, wait=False):
         """
         Convierte texto a audio y lo guarda en un archivo
 
@@ -82,6 +82,7 @@ class ElevenLabsClient:
             voice_id (str): ID de la voz a usar (default: Rachel)
             model_id (str): Modelo de TTS a usar
             play_audio (bool): Si es True, reproduce el audio automáticamente
+            wait (bool): Si es True, espera a que termine la reproducción (requiere play_audio=True)
 
         Returns:
             str: Ruta del archivo generado o None si falla
@@ -90,8 +91,10 @@ class ElevenLabsClient:
 
         if audio_data:
             file_path = self.save_audio(audio_data)
+
             if file_path and play_audio:
-                self.play_audio(file_path)
+                self.play_audio(file_path, wait=wait)
+
             return file_path
         else:
             return None
@@ -130,22 +133,22 @@ class ElevenLabsClient:
 
             # Retornar ruta relativa desde MEDIA_ROOT
             relative_path = os.path.join('elevenlabs', filename)
-            print(f"[ELEVENLABS] 💾 Audio guardado: {relative_path}")
             return relative_path
 
         except Exception as e:
             print(f"[ELEVENLABS] ❌ Error guardando audio: {str(e)}")
             return None
 
-    def play_audio(self, file_path):
+    def play_audio(self, file_path, wait=False):
         """
         Reproduce un archivo de audio usando paplay (PulseAudio)
 
         Args:
             file_path (str): Ruta relativa del archivo desde MEDIA_ROOT
+            wait (bool): Si es True, espera a que termine la reproducción (bloqueante)
 
         Returns:
-            bool: True si se inició la reproducción, False si falla
+            bool: True si se inició/completó la reproducción, False si falla
         """
         try:
             # Construir ruta absoluta
@@ -155,13 +158,19 @@ class ElevenLabsClient:
                 print(f"[ELEVENLABS] ❌ Archivo no encontrado: {absolute_path}")
                 return False
 
-            # Reproducir audio usando paplay en background
-            subprocess.Popen(['paplay', absolute_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print(f"[ELEVENLABS] 🔊 Reproduciendo audio: {file_path}")
-            return True
+            if wait:
+                # Reproducción bloqueante (espera a que termine)
+                result = subprocess.run(['paplay', absolute_path], capture_output=True, text=True)
+                if result.returncode != 0 and result.stderr:
+                    print(f"[ELEVENLABS] ⚠️ Error reproduciendo: {result.stderr}")
+                return result.returncode == 0
+            else:
+                # Reproducción en background (no espera)
+                subprocess.Popen(['paplay', absolute_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                return True
 
         except Exception as e:
-            print(f"[ELEVENLABS] ❌ Error reproduciendo audio: {str(e)}")
+            print(f"[ELEVENLABS] ❌ Exception reproduciendo audio: {str(e)}")
             return False
 
     def get_voices(self):

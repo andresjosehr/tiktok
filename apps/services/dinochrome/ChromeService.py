@@ -9,13 +9,14 @@ class ChromeService:
     def __init__(self):
         self.driver = None
 
-    def initialize_browser(self, headless=False):
+    def initialize_browser(self, headless=False, width=800, height=400):
         """Inicializa Chrome con DinoChrome"""
         options = Options()
         if headless:
             options.add_argument('--headless=new')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
+        options.add_argument(f'--window-size={width},{height}')
 
         self.driver = webdriver.Chrome(options=options)
 
