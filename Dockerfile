@@ -9,6 +9,16 @@ RUN apt-get update && apt-get install -y \
     gcc \
     default-libmysqlclient-dev \
     pkg-config \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Instalar Chrome y dependencias
+RUN apt-get update && apt-get install -y \
+    gnupg \
+    && curl -sSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb \
+    && apt-get install -y /tmp/chrome.deb || apt-get -f install -y \
+    && rm /tmp/chrome.deb \
     && rm -rf /var/lib/apt/lists/*
 
 # Establecer directorio de trabajo

@@ -5,9 +5,9 @@ Este servicio maneja eventos de TikTok y ejecuta acciones en Chrome/navegador.
 Actualmente solo simula las acciones con timeouts y logs.
 """
 
-import time
 import logging
 from apps.queue_system.base_service import BaseQueueService
+from apps.services.chrome.ChromeService import ChromeService
 
 # Configurar logger
 logger = logging.getLogger('dinochrome')
@@ -25,6 +25,7 @@ class DinoChromeService(BaseQueueService):
 
     def __init__(self):
         self.session_start = None
+        self.chrome = ChromeService()
 
     def on_start(self):
         """Se ejecuta al iniciar el worker"""
@@ -40,9 +41,19 @@ class DinoChromeService(BaseQueueService):
         print("=" * 60)
         logger.info("DinoChrome Service iniciado")
 
+        # Inicializar navegador Chrome con DinoChrome
+        if self.chrome.initialize_browser(headless=False):
+            logger.info("✅ Navegador Chrome inicializado con DinoChrome")
+        else:
+            logger.warning("⚠️  No se pudo inicializar el navegador Chrome")
+
     def on_stop(self):
         """Se ejecuta al detener el worker"""
         from datetime import datetime
+
+        # Cerrar navegador Chrome
+        self.chrome.close()
+
         if self.session_start:
             duration = datetime.now() - self.session_start
             print("\n" + "=" * 60)
@@ -111,15 +122,10 @@ class DinoChromeService(BaseQueueService):
         user = live_event.user_nickname or live_event.user_unique_id
 
         print(f"   🎁 Regalo: {gift_name} x{repeat_count} ({diamonds} diamantes)")
-        print(f"   ⚙️  Acción Chrome: Mostrar animación de regalo")
         logger.info(f"[GIFT] Usuario: {user} | Regalo: {gift_name} (ID:{gift_id}) | Cantidad: x{repeat_count} | Diamantes: {diamonds} | Queue: {queue_item.id}")
 
-        # Simular procesamiento con timeout más largo
-        logger.info(f"[GIFT] Iniciando animación de regalo en Chrome... (esperando 3 segundos)")
-        time.sleep(3.0)
-
         print(f"   ✅ Regalo procesado")
-        logger.info(f"[GIFT] ✅ Animación completada exitosamente: {gift_name} de {user}")
+        logger.info(f"[GIFT] ✅ Regalo procesado: {gift_name} de {user}")
         return True
 
     def _process_comment(self, live_event, queue_item):
@@ -128,15 +134,10 @@ class DinoChromeService(BaseQueueService):
         user = live_event.user_nickname or live_event.user_unique_id
 
         print(f"   💬 Comentario: {comment[:50]}{'...' if len(comment) > 50 else ''}")
-        print(f"   ⚙️  Acción Chrome: Mostrar comentario en overlay")
         logger.info(f"[COMMENT] Usuario: {user} | Mensaje: '{comment}' | Queue: {queue_item.id}")
 
-        # Simular procesamiento
-        logger.info(f"[COMMENT] Ejecutando JavaScript en Chrome para mostrar comentario... (esperando 1.5 segundos)")
-        time.sleep(1.5)
-
         print(f"   ✅ Comentario procesado")
-        logger.info(f"[COMMENT] ✅ Comentario mostrado exitosamente en overlay de {user}")
+        logger.info(f"[COMMENT] ✅ Comentario procesado de {user}")
         return True
 
     def _process_like(self, live_event, queue_item):
@@ -145,15 +146,10 @@ class DinoChromeService(BaseQueueService):
         user = live_event.user_nickname or live_event.user_unique_id
 
         print(f"   ❤️  Likes: {like_count}")
-        print(f"   ⚙️  Acción Chrome: Actualizar contador de likes")
         logger.info(f"[LIKE] Usuario: {user} | Cantidad: {like_count} likes | Queue: {queue_item.id}")
 
-        # Simular procesamiento
-        logger.info(f"[LIKE] Actualizando contador en Chrome... (esperando 1 segundo)")
-        time.sleep(1.0)
-
         print(f"   ✅ Like procesado")
-        logger.info(f"[LIKE] ✅ Contador actualizado exitosamente de {user}")
+        logger.info(f"[LIKE] ✅ Like procesado de {user}")
         return True
 
     def _process_share(self, live_event, queue_item):
@@ -161,15 +157,10 @@ class DinoChromeService(BaseQueueService):
         user = live_event.user_nickname or live_event.user_unique_id
 
         print(f"   📤 Compartido")
-        print(f"   ⚙️  Acción Chrome: Mostrar notificación de share")
         logger.info(f"[SHARE] Usuario: {user} compartió el live | Queue: {queue_item.id}")
 
-        # Simular procesamiento
-        logger.info(f"[SHARE] Mostrando notificación de agradecimiento en Chrome... (esperando 2 segundos)")
-        time.sleep(2.0)
-
         print(f"   ✅ Share procesado")
-        logger.info(f"[SHARE] ✅ Notificación mostrada exitosamente de {user}")
+        logger.info(f"[SHARE] ✅ Share procesado de {user}")
         return True
 
     def _process_follow(self, live_event, queue_item):
@@ -177,15 +168,10 @@ class DinoChromeService(BaseQueueService):
         user = live_event.user_nickname or live_event.user_unique_id
 
         print(f"   👤 Nuevo seguidor")
-        print(f"   ⚙️  Acción Chrome: Mostrar animación de follow")
         logger.info(f"[FOLLOW] Nuevo seguidor: {user} | Queue: {queue_item.id}")
 
-        # Simular procesamiento
-        logger.info(f"[FOLLOW] Reproduciendo animación de nuevo seguidor en Chrome... (esperando 2.5 segundos)")
-        time.sleep(2.5)
-
         print(f"   ✅ Follow procesado")
-        logger.info(f"[FOLLOW] ✅ Animación de seguidor completada para {user}")
+        logger.info(f"[FOLLOW] ✅ Follow procesado de {user}")
         return True
 
     def _process_subscribe(self, live_event, queue_item):
@@ -193,13 +179,8 @@ class DinoChromeService(BaseQueueService):
         user = live_event.user_nickname or live_event.user_unique_id
 
         print(f"   ⭐ Nueva suscripción")
-        print(f"   ⚙️  Acción Chrome: Mostrar animación de suscripción")
         logger.info(f"[SUBSCRIBE] Nueva suscripción de: {user} | Queue: {queue_item.id}")
 
-        # Simular procesamiento
-        logger.info(f"[SUBSCRIBE] Reproduciendo animación especial de suscripción en Chrome... (esperando 3.5 segundos)")
-        time.sleep(3.5)
-
         print(f"   ✅ Suscripción procesada")
-        logger.info(f"[SUBSCRIBE] ✅ Animación de suscripción completada para {user}")
+        logger.info(f"[SUBSCRIBE] ✅ Suscripción procesada de {user}")
         return True

@@ -27,6 +27,7 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
+      - /tmp/.X11-unix:/tmp/.X11-unix
     ports:
       - "8000:8000"
     environment:
@@ -35,6 +36,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_HOST: db
       DB_PORT: 3306
+      DISPLAY: ${DISPLAY}
     depends_on:
       db:
         condition: service_healthy
