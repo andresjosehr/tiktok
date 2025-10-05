@@ -10,11 +10,14 @@ const AUTO_JUMP_DISTANCE = 150
 
 const worldElem = document.querySelector("[data-world]")
 const scoreElem = document.querySelector("[data-score]")
-const startScreenElem = document.querySelector("[data-start-screen]")
 
 setPixelToWorldScale()
 window.addEventListener("resize", setPixelToWorldScale)
-document.addEventListener("keydown", handleStart, { once: true })
+
+// Iniciar juego automáticamente después de la animación de revelación
+setTimeout(() => {
+  handleStart()
+}, 3000)
 
 let lastTime
 let speedScale
@@ -31,7 +34,7 @@ function update(time) {
   updateGround(delta, speedScale)
   updateDino(delta, speedScale)
   updateCactus(delta, speedScale)
-  updateSpeedScale(delta)
+  // updateSpeedScale(delta) // Velocidad constante
   updateScore(delta)
   autoJump()
   // if (checkLose()) return handleLose() // Dinosaurio inmortal
@@ -71,16 +74,7 @@ function handleStart() {
   setupGround()
   setupDino()
   setupCactus()
-  startScreenElem.classList.add("hide")
   window.requestAnimationFrame(update)
-}
-
-function handleLose() {
-  setDinoLose()
-  setTimeout(() => {
-    document.addEventListener("keydown", handleStart, { once: true })
-    startScreenElem.classList.remove("hide")
-  }, 100)
 }
 
 function autoJump() {
