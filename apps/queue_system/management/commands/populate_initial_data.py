@@ -249,14 +249,83 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(f'    {status} {config_data["event_type"]} (P:{config_data["priority"]}, {mode})')
 
+        # 4. Crear servicio Music
+        self.stdout.write('\n🎵 Creando servicio Music...')
+        music, created = Service.objects.get_or_create(
+            slug='music',
+            defaults={
+                'name': 'Music',
+                'service_class': 'apps.services.music.services.MusicService',
+                'description': 'Servicio de reproduccion de musica desde YouTube con sistema de creditos',
+                'is_active': True,
+                'max_queue_size': 30
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS('  ✅ Servicio Music creado'))
+        else:
+            self.stdout.write(self.style.WARNING('  ⚠️  Servicio Music ya existe'))
+
+        # Crear configs para Music
+        self.stdout.write('\n🎵 Creando configuracion de music_gift_name...')
+        config, created = Config.objects.get_or_create(
+            meta_key='music_gift_name',
+            defaults={'meta_value': 'rosa'}
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS('  ✅ Config "music_gift_name" creada'))
+        else:
+            self.stdout.write(self.style.WARNING('  ⚠️  Config "music_gift_name" ya existe'))
+
+        self.stdout.write('\n⏱️  Creando configuracion de music_max_duration...')
+        config, created = Config.objects.get_or_create(
+            meta_key='music_max_duration',
+            defaults={'meta_value': '300'}
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS('  ✅ Config "music_max_duration" creada'))
+        else:
+            self.stdout.write(self.style.WARNING('  ⚠️  Config "music_max_duration" ya existe'))
+
+        # Configuraciones de eventos para Music (GiftEvent y CommentEvent)
+        music_configs = [
+            {
+                'event_type': 'GiftEvent',
+                'is_enabled': True,
+                'priority': 9,  # Alta prioridad
+                'is_async': False,  # SYNC
+                'is_discardable': False  # Nunca descartar regalos
+            },
+            {
+                'event_type': 'CommentEvent',
+                'is_enabled': True,
+                'priority': 7,
+                'is_async': False,  # SYNC para descargar y reproducir
+                'is_discardable': True
+            },
+        ]
+
+        self.stdout.write('  📋 Configurando eventos para Music...')
+        for config_data in music_configs:
+            config, created = ServiceEventConfig.objects.get_or_create(
+                service=music,
+                event_type=config_data['event_type'],
+                defaults=config_data
+            )
+            mode = 'ASYNC' if config_data['is_async'] else 'SYNC'
+            status = '✅' if config_data['is_enabled'] else '❌'
+            if created:
+                self.stdout.write(f'    {status} {config_data["event_type"]} (P:{config_data["priority"]}, {mode})')
+
         # Resumen final
         self.stdout.write('\n' + '='*60)
         self.stdout.write(self.style.SUCCESS('✅ Población de datos completada exitosamente!'))
         self.stdout.write('='*60)
         self.stdout.write('\n📊 Resumen:')
-        self.stdout.write(f'  • Config: 6 registros (tiktok_user, elevenlabs_api, llm_url, llm_key, llm_model, llm_system_prompt)')
-        self.stdout.write(f'  • Servicios: 2 (DinoChrome, Overlays)')
+        self.stdout.write(f'  • Config: 8 registros (tiktok_user, elevenlabs_api, llm_*, music_*)')
+        self.stdout.write(f'  • Servicios: 3 (DinoChrome, Overlays, Music)')
         self.stdout.write(f'  • DinoChrome: {ServiceEventConfig.objects.filter(service=dinochrome).count()} configuraciones de eventos (SYNC)')
         self.stdout.write(f'  • Overlays: {ServiceEventConfig.objects.filter(service=overlays).count()} configuraciones de eventos (ASYNC)')
+        self.stdout.write(f'  • Music: {ServiceEventConfig.objects.filter(service=music).count()} configuraciones de eventos (SYNC)')
         self.stdout.write('\n💡 Puedes ver la configuración en el admin de Django')
         self.stdout.write('')

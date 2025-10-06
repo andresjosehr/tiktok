@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'apps.tiktok_events',
     'apps.app_config',
     'apps.services.dinochrome.dino-game.apps.DinoGameConfig',
+    'apps.services.music',
     'apps.integrations.elevenlabs',
     'apps.integrations.llm',
 ]
