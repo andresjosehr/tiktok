@@ -137,12 +137,19 @@ class ServiceWorker:
                     time.sleep(0.1)
                     continue
 
+                # LOG: Evento obtenido de la cola
+                self._log(
+                    f"📥 [{self.service.name}] Obtenido de cola: {queue_item.live_event.event_type} "
+                    f"(P:{queue_item.priority}, ID:{queue_item.id})"
+                )
+
                 # Marcar como procesando
                 queue_item.mark_processing()
 
                 # Procesar según modo (async o sync)
                 if queue_item.is_async:
                     # ASYNC: Procesar en thread separado (no esperar)
+                    self._log(f"🔀 [{self.service.name}] Procesando ASYNC (ID:{queue_item.id})")
                     thread = threading.Thread(
                         target=self._process_event_safe,
                         args=(queue_item,),
@@ -156,6 +163,7 @@ class ServiceWorker:
 
                 else:
                     # SYNC: Procesar y esperar
+                    self._log(f"⏳ [{self.service.name}] Procesando SYNC (ID:{queue_item.id})")
                     self._process_event_safe(queue_item)
 
             except Exception as e:

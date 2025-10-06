@@ -90,12 +90,11 @@ class DinoChromeService(BaseQueueService):
             event_data = live_event.event_data
             gift_name = event_data.get('gift', {}).get('name', '').lower()
 
+            print(f"[DINOCHROME] 🎁 Procesando regalo: {gift_name} (Queue ID: {queue_item.id})")
+
             # Si es una rosa, reiniciar el juego y reproducir audio
             if 'rose' in gift_name or 'rosa' in gift_name:
-                print(f"[DINOCHROME] 🌹 Rosa detectada! Reiniciando juego...")
-
-                # Primero reiniciar el juego
-                self.chrome.restart()
+                print(f"[DINOCHROME] 🌹 Rosa detectada! (Queue ID: {queue_item.id})")
 
                 # Generar texto dinámico con LLM usando prompts variados
                 username = live_event.user_nickname or live_event.user_unique_id or 'alguien'
@@ -103,53 +102,53 @@ class DinoChromeService(BaseQueueService):
                 # Sistema de prompts variados con diferentes emociones y contextos
                 system_prompts = [
                     # Enojado / Frustrado
-                    f"Eres un jugador de DinoChrome en un directo de TikTok. {username} acaba de donarte una rosa y eso reinició tu juego justo cuando ibas muy bien. Estás FURIOSO y frustrado. Genera una respuesta corta (máximo 2-3 frases) expresando tu enojo de forma exagerada pero graciosa. Menciona a {username} directamente. Habla en primera persona como si estuvieras transmitiendo en vivo.",
+                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Estás frustrado pero de forma cómica. Genera UNA SOLA FRASE corta (máximo 200 caracteres) expresando tu frustración de forma exagerada pero divertida. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. Contenido familiar y apropiado para TikTok.",
 
                     # Dramático / Exagerado
-                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} te donó una rosa que reinició tu partida. Eres EXTREMADAMENTE dramático y exagerado. Genera una respuesta corta (máximo 2-3 frases) como si fuera el fin del mundo, pero de forma cómica. Menciona a {username}. Actúa como si estuvieras narrando una tragedia épica.",
+                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Eres dramático y exagerado. Genera UNA SOLA FRASE corta (máximo 200 caracteres) como si fuera una tragedia cómica. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. Contenido familiar y apropiado para TikTok.",
 
                     # Sarcástico / Irónico
-                    f"Eres un jugador de DinoChrome en directo de TikTok. {username} donó una rosa que reinició tu juego. Eres muy SARCÁSTICO e irónico. Genera una respuesta corta (máximo 2-3 frases) agradeciendo 'irónicamente' el regalo mientras dejas claro tu frustración. Menciona a {username}. Usa mucho sarcasmo.",
+                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Eres sarcástico. Genera UNA SOLA FRASE corta (máximo 200 caracteres) agradeciendo irónicamente. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. Contenido familiar y apropiado para TikTok.",
 
                     # Resignado / Filosófico
-                    f"Eres un streamer de DinoChrome en TikTok Live. {username} te envió una rosa que reinició tu partida. Estás resignado pero filosófico. Genera una respuesta corta (máximo 2-3 frases) aceptando tu destino de forma melodramática pero graciosa. Menciona a {username}. Habla como si fuera tu karma o destino.",
+                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Estás resignado pero filosófico. Genera UNA SOLA FRASE corta (máximo 200 caracteres) aceptando tu destino de forma graciosa. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. Contenido familiar y apropiado para TikTok.",
 
-                    # Vengativo / Amenazante (de broma)
-                    f"Eres un jugador de DinoChrome transmitiendo en TikTok. {username} donó una rosa que reinició tu juego. Estás 'amenazando' venganza de forma EXAGERADA y cómica (obviamente de broma). Genera una respuesta corta (máximo 2-3 frases) haciendo amenazas absurdas y graciosas. Menciona a {username}. Sé dramático pero claramente jugando.",
+                    # Sorprendido / Confundido
+                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Estás confundido y sorprendido. Genera UNA SOLA FRASE corta (máximo 200 caracteres) expresando tu confusión de forma graciosa. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. Contenido familiar y apropiado para TikTok.",
 
-                    # Confundido / Traicionado
-                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} te donó una rosa que reinició tu partida. Te sientes TRAICIONADO y confundido. Genera una respuesta corta (máximo 2-3 frases) preguntándote por qué te hicieron esto, de forma dramática. Menciona a {username}. Actúa como si fuera una traición épica.",
-
-                    # Histérico / Pánico
-                    f"Eres un jugador de DinoChrome en directo de TikTok. {username} donó una rosa que reinició tu juego. Entras en PÁNICO total y hablas de forma histérica. Genera una respuesta corta (máximo 2-3 frases) con mucha energía, como si estuvieras en shock. Menciona a {username}. Sé muy expresivo y caótico.",
+                    # Agradecido pero afectado
+                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Agradeces el regalo pero lamentas el reinicio. Genera UNA SOLA FRASE corta (máximo 200 caracteres) siendo amable pero dramático. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. Contenido familiar y apropiado para TikTok.",
 
                     # Melodramático / Telenovela
-                    f"Eres un streamer de DinoChrome en TikTok Live. {username} te envió una rosa que reinició tu partida. Responde como si estuvieras en una TELENOVELA mexicana, super melodramático. Genera una respuesta corta (máximo 2-3 frases) con mucho drama. Menciona a {username}. Actúa como villano o protagonista de telenovela."
+                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Hablas como personaje de telenovela mexicana. Genera UNA SOLA FRASE corta (máximo 200 caracteres) super melodramática y divertida. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. Contenido familiar y apropiado para TikTok.",
+
+                    # Juguetón / Bromista
+                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Eres juguetón y bromista. Genera UNA SOLA FRASE corta (máximo 200 caracteres) bromeando sobre la situación. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. Contenido familiar y apropiado para TikTok."
                 ]
 
                 # Seleccionar un prompt aleatorio
                 selected_prompt = random.choice(system_prompts)
 
-                # Generar respuesta con el prompt personalizado
+                # PASO 1: Generar texto con LLM
                 try:
-                    # MEDICIÓN: Tiempo de generación de texto con LLM
                     llm_start = time.time()
                     ai_response = self.llm.chat(
                         user_message=f"El usuario {username} acaba de donar una rosa en el stream.",
                         system_message=selected_prompt,
-                        max_tokens=150,
+                        max_tokens=50,  # Reducido para frases más cortas
                         temperature=0.9
                     )
                     llm_time = time.time() - llm_start
                     print(f"[DINOCHROME] ⏱️ LLM generó texto en {llm_time:.2f}s")
                 except Exception as e:
                     print(f"[DINOCHROME] ❌ Error LLM: {e}")
-                    ai_response = f"No no no {username}! Me reiniciaste el juego justo cuando iba súper bien! Ahora qué voy a hacer?"
+                    ai_response = f"Ay {username}, me reiniciaste el juego!"
 
                 # Verificar que hay respuesta
                 if not ai_response:
                     ai_response = f"Gracias por la rosa {username}, pero me reiniciaste el juego!"
 
+                # PASO 2: Generar audio con ElevenLabs
                 try:
                     audio_file = self.elevenlabs.text_to_speech_and_save(
                         ai_response,
@@ -157,17 +156,28 @@ class DinoChromeService(BaseQueueService):
                         play_audio=False,
                         wait=False
                     )
+
+                    # PASO 3: Reiniciar juego + Reproducir audio simultáneamente
                     if audio_file:
-                        self.elevenlabs.play_audio(audio_file, wait=True)
+                        self.chrome.restart()  # Reiniciar primero (sin latencia)
+                        self.elevenlabs.play_audio(audio_file, wait=True)  # Reproducir inmediatamente después
+                        print(f"[DINOCHROME] ✅ Proceso completado (Queue ID: {queue_item.id})")
+                    else:
+                        print(f"[DINOCHROME] ⚠️ No se generó archivo de audio (Queue ID: {queue_item.id})")
                 except Exception as e:
                     print(f"[DINOCHROME] ❌ Error ElevenLabs: {e}")
+                    return False
 
                 return True
 
+            # No es una rosa, solo retornar True
+            print(f"[DINOCHROME] ℹ️ No es una rosa, ignorando (Queue ID: {queue_item.id})")
             return True
 
         except Exception as e:
-            print(f"[DINOCHROME] ❌ Error: {e}")
+            print(f"[DINOCHROME] ❌ Error crítico: {e} (Queue ID: {queue_item.id})")
+            import traceback
+            traceback.print_exc()
             return False
 
     def _process_comment(self, live_event, queue_item):
