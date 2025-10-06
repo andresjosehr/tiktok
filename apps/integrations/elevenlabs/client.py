@@ -14,7 +14,8 @@ from apps.app_config.models import Config
 class ElevenLabsClient:
     """Cliente para interactuar con la API de ElevenLabs"""
 
-    BASE_URL = "https://api.elevenlabs.io/v1"
+    # Usar API global para mejor latencia
+    BASE_URL = "https://api-global-preview.elevenlabs.io/v1"
 
     def __init__(self):
         self.api_key = self._get_api_key()
@@ -27,14 +28,14 @@ class ElevenLabsClient:
         except Config.DoesNotExist:
             return None
 
-    def text_to_speech(self, text, voice_id="21m00Tcm4TlvDq8ikWAM", model_id="eleven_monolingual_v1"):
+    def text_to_speech(self, text, voice_id="21m00Tcm4TlvDq8ikWAM", model_id="eleven_flash_v2_5"):
         """
-        Convierte texto a audio usando ElevenLabs
+        Convierte texto a audio usando ElevenLabs con streaming para menor latencia
 
         Args:
             text (str): Texto a convertir
             voice_id (str): ID de la voz a usar (default: Rachel)
-            model_id (str): Modelo de TTS a usar
+            model_id (str): Modelo de TTS (default: eleven_flash_v2_5 para baja latencia)
 
         Returns:
             bytes: Audio en formato MP3 o None si falla
@@ -43,7 +44,8 @@ class ElevenLabsClient:
             print("[ELEVENLABS] ⚠️ API key no configurada")
             return None
 
-        url = f"{self.BASE_URL}/text-to-speech/{voice_id}"
+        # Usar endpoint de streaming para reducir latencia
+        url = f"{self.BASE_URL}/text-to-speech/{voice_id}/stream"
 
         headers = {
             "Accept": "audio/mpeg",
@@ -57,14 +59,20 @@ class ElevenLabsClient:
             "voice_settings": {
                 "stability": 0.5,
                 "similarity_boost": 0.5
-            }
+            },
+            "optimize_streaming_latency": 3  # Máxima optimización de latencia
         }
 
         try:
-            response = requests.post(url, json=data, headers=headers)
+            response = requests.post(url, json=data, headers=headers, stream=True)
 
             if response.status_code == 200:
-                return response.content
+                # Recolectar chunks de audio
+                audio_chunks = []
+                for chunk in response.iter_content(chunk_size=1024):
+                    if chunk:
+                        audio_chunks.append(chunk)
+                return b''.join(audio_chunks)
             else:
                 print(f"[ELEVENLABS] ❌ Error {response.status_code}: {response.text}")
                 return None
@@ -73,7 +81,7 @@ class ElevenLabsClient:
             print(f"[ELEVENLABS] ❌ Exception en text_to_speech: {str(e)}")
             return None
 
-    def text_to_speech_and_save(self, text, voice_id="21m00Tcm4TlvDq8ikWAM", model_id="eleven_monolingual_v1", play_audio=False, wait=False):
+    def text_to_speech_and_save(self, text, voice_id="21m00Tcm4TlvDq8ikWAM", model_id="eleven_flash_v2_5", play_audio=False, wait=False):
         """
         Convierte texto a audio y lo guarda en un archivo
 
