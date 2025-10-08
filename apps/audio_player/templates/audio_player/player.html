@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Player - TikTok Live</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            margin: 20px 0;
+            font-size: 1rem;
+        }
+
+        .status.waiting {
+            background: rgba(255, 193, 7, 0.3);
+            border: 2px solid #ffc107;
+        }
+
+        .status.playing {
+            background: rgba(76, 175, 80, 0.3);
+            border: 2px solid #4caf50;
+        }
+
+        .audio-info {
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            font-size: 0.9rem;
+        }
+
+        audio {
+            width: 100%;
+            margin: 20px 0;
+            border-radius: 10px;
+        }
+
+        .connection-status {
+            font-size: 0.85rem;
+            opacity: 0.7;
+            margin-top: 20px;
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .start-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: 3px solid white;
+            color: white;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .start-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .start-button:active {
+            transform: scale(0.98);
+        }
+
+        #startOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        #startOverlay .content {
+            text-align: center;
+        }
+
+        #startOverlay h2 {
+            margin-bottom: 20px;
+            font-size: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="startOverlay">
+        <div class="content">
+            <h2>▶️ Iniciar Reproductor</h2>
+            <p style="margin-bottom: 30px; font-size: 1.1rem;">Haz clic para activar la reproducción automática</p>
+            <button class="start-button" onclick="initPlayer()">Iniciar</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>🎵 Audio Player</h1>
+        <p class="subtitle">TikTok Live Event System</p>
+
+        <div id="statusMusic" class="status waiting pulse">
+            🎵 Música: Esperando...
+        </div>
+        <audio id="musicPlayer" controls loop></audio>
+
+        <div id="statusVoice" class="status waiting pulse" style="margin-top: 20px;">
+            🎤 Voz: Esperando...
+        </div>
+        <audio id="voicePlayer" controls></audio>
+
+        <div class="connection-status">
+            <span id="connectionStatus">🔴 Conectando...</span>
+        </div>
+    </div>
+
+    <script>
+        const musicPlayer = document.getElementById('musicPlayer');
+        const voicePlayer = document.getElementById('voicePlayer');
+        const statusMusic = document.getElementById('statusMusic');
+        const statusVoice = document.getElementById('statusVoice');
+        const connectionStatus = document.getElementById('connectionStatus');
+
+        let lastMusicTimestamp = 0;
+        let lastVoiceTimestamp = 0;
+        let autoplayEnabled = false;
+
+        function initPlayer() {
+            document.getElementById('startOverlay').style.display = 'none';
+
+            autoplayEnabled = true;
+            musicPlayer.setAttribute('autoplay', 'true');
+            voicePlayer.setAttribute('autoplay', 'true');
+
+            musicPlayer.volume = 0.4;
+            voicePlayer.volume = 1.0;
+
+            startPolling();
+        }
+
+        function startPolling() {
+            connectionStatus.textContent = '🟢 Conectado';
+
+            setInterval(async () => {
+                try {
+                    const response = await fetch('/audio/current/');
+                    const data = await response.json();
+
+                    if (data.music.audio_url && data.music.timestamp && data.music.timestamp > lastMusicTimestamp) {
+                        playAudio(musicPlayer, data.music.audio_url, data.music.timestamp, statusMusic, '🎵 Música');
+                        lastMusicTimestamp = data.music.timestamp;
+                    }
+
+                    if (data.voice.audio_url && data.voice.timestamp && data.voice.timestamp > lastVoiceTimestamp) {
+                        playAudio(voicePlayer, data.voice.audio_url, data.voice.timestamp, statusVoice, '🎤 Voz');
+                        lastVoiceTimestamp = data.voice.timestamp;
+                    }
+                } catch (error) {
+                    connectionStatus.textContent = '🔴 Error de conexión';
+                }
+            }, 500);
+        }
+
+        function playAudio(player, audioUrl, ts, statusElement, label) {
+            player.src = audioUrl;
+            player.load();
+
+            const playPromise = player.play();
+
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        statusElement.textContent = `${label}: Reproduciendo`;
+                        statusElement.className = 'status playing';
+                    })
+                    .catch(error => {
+                        statusElement.textContent = `${label}: Error`;
+                    });
+            }
+        }
+
+        musicPlayer.addEventListener('ended', function() {
+            statusMusic.textContent = '🎵 Música: Esperando...';
+            statusMusic.className = 'status waiting pulse';
+        });
+
+        voicePlayer.addEventListener('ended', function() {
+            statusVoice.textContent = '🎤 Voz: Esperando...';
+            statusVoice.className = 'status waiting pulse';
+        });
+    </script>
+</body>
+</html>

@@ -20,48 +20,41 @@ class MusicPlayer:
 
     def play(self, file_path, on_finish_callback=None):
         """
-        Reproduce un archivo de audio
+        Envía audio al reproductor web (navegador Windows)
 
         Args:
             file_path (str): Ruta absoluta del archivo
             on_finish_callback (callable): Funcion a ejecutar cuando termine
 
         Returns:
-            bool: True si inicio la reproduccion
+            bool: True si se envió correctamente
         """
         if not os.path.exists(file_path):
             print(f"[PLAYER] Archivo no encontrado: {file_path}")
             return False
 
-        # Detener cancion actual si existe
         self.stop()
 
         with self.lock:
             try:
-                print(f"[PLAYER] Reproduciendo: {file_path}")
-
-                # Iniciar reproduccion en proceso separado
-                self.current_process = subprocess.Popen(
-                    ['paplay', file_path],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
-                )
+                from apps.audio_player.views import set_audio
+                set_audio(file_path, channel='music')
 
                 self.current_song = file_path
                 self.is_playing = True
 
-                # Monitorear en thread separado
-                monitor_thread = threading.Thread(
-                    target=self._monitor_playback,
-                    args=(self.current_process, on_finish_callback),
-                    daemon=True
-                )
-                monitor_thread.start()
+                if on_finish_callback:
+                    monitor_thread = threading.Thread(
+                        target=self._monitor_web_playback,
+                        args=(file_path, on_finish_callback),
+                        daemon=True
+                    )
+                    monitor_thread.start()
 
                 return True
 
             except Exception as e:
-                print(f"[PLAYER] Error reproduciendo: {str(e)}")
+                print(f"[PLAYER] Error enviando audio: {str(e)}")
                 self.is_playing = False
                 return False
 
@@ -116,6 +109,44 @@ class MusicPlayer:
 
         except Exception as e:
             print(f"[PLAYER] Error en monitor: {str(e)}")
+
+    def _monitor_web_playback(self, file_path, on_finish_callback):
+        """
+        Monitorea la reproducción web y ejecuta callback después de la duración del audio
+
+        Args:
+            file_path: Ruta del archivo de audio
+            on_finish_callback: Función a ejecutar cuando termine
+        """
+        try:
+            import time
+
+            result = subprocess.run(
+                ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                 '-of', 'default=noprint_wrappers=1:nokey=1', file_path],
+                capture_output=True,
+                text=True
+            )
+
+            duration = 5
+            if result.returncode == 0:
+                try:
+                    duration = float(result.stdout.strip())
+                except:
+                    pass
+
+            time.sleep(duration)
+
+            with self.lock:
+                if self.is_playing and self.current_song == file_path:
+                    self.is_playing = False
+                    self.current_song = None
+
+                    if on_finish_callback:
+                        on_finish_callback(interrupted=False)
+
+        except Exception as e:
+            print(f"[PLAYER] Error en monitor web: {str(e)}")
 
     def get_current_song(self):
         """Retorna la ruta de la cancion actual"""

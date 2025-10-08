@@ -44,7 +44,6 @@ class ElevenLabsClient:
             print("[ELEVENLABS] ⚠️ API key no configurada")
             return None
 
-        # Usar endpoint de streaming para reducir latencia
         url = f"{self.BASE_URL}/text-to-speech/{voice_id}/stream"
 
         headers = {
@@ -60,14 +59,13 @@ class ElevenLabsClient:
                 "stability": 0.5,
                 "similarity_boost": 0.5
             },
-            "optimize_streaming_latency": 3  # Máxima optimización de latencia
+            "optimize_streaming_latency": 3
         }
 
         try:
             response = requests.post(url, json=data, headers=headers, stream=True)
 
             if response.status_code == 200:
-                # Recolectar chunks de audio
                 audio_chunks = []
                 for chunk in response.iter_content(chunk_size=1024):
                     if chunk:
@@ -104,8 +102,8 @@ class ElevenLabsClient:
                 self.play_audio(file_path, wait=wait)
 
             return file_path
-        else:
-            return None
+
+        return None
 
     def save_audio(self, audio_data, filename=None):
         """
@@ -149,36 +147,45 @@ class ElevenLabsClient:
 
     def play_audio(self, file_path, wait=False):
         """
-        Reproduce un archivo de audio usando paplay (PulseAudio)
+        Envía audio al reproductor web (navegador Windows)
 
         Args:
             file_path (str): Ruta relativa del archivo desde MEDIA_ROOT
             wait (bool): Si es True, espera a que termine la reproducción (bloqueante)
 
         Returns:
-            bool: True si se inició/completó la reproducción, False si falla
+            bool: True si se envió correctamente
         """
         try:
-            # Construir ruta absoluta
             absolute_path = os.path.join(settings.MEDIA_ROOT, file_path)
 
             if not os.path.exists(absolute_path):
                 print(f"[ELEVENLABS] ❌ Archivo no encontrado: {absolute_path}")
                 return False
 
+            from apps.audio_player.views import set_audio
+            set_audio(absolute_path, channel='voice')
+
             if wait:
-                # Reproducción bloqueante (espera a que termine)
-                result = subprocess.run(['paplay', absolute_path], capture_output=True, text=True)
-                if result.returncode != 0 and result.stderr:
-                    print(f"[ELEVENLABS] ⚠️ Error reproduciendo: {result.stderr}")
-                return result.returncode == 0
-            else:
-                # Reproducción en background (no espera)
-                subprocess.Popen(['paplay', absolute_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                return True
+                import subprocess
+                result = subprocess.run(
+                    ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+                     '-of', 'default=noprint_wrappers=1:nokey=1', absolute_path],
+                    capture_output=True,
+                    text=True
+                )
+                if result.returncode == 0:
+                    try:
+                        duration = float(result.stdout.strip())
+                        import time
+                        time.sleep(duration)
+                    except:
+                        pass
+
+            return True
 
         except Exception as e:
-            print(f"[ELEVENLABS] ❌ Exception reproduciendo audio: {str(e)}")
+            print(f"[ELEVENLABS] ❌ Exception enviando audio: {str(e)}")
             return False
 
     def get_voices(self):

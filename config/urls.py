@@ -24,6 +24,7 @@ urlpatterns = [
     path('dino/', include('apps.services.dinochrome.dino-game.urls')),
     path('elevenlabs/', include('apps.integrations.elevenlabs.urls')),
     path('llm/', include('apps.integrations.llm.urls')),
+    path('audio/', include('apps.audio_player.urls')),
 ]
 
 # Serve media files in development

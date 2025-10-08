@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'apps.services.music',
     'apps.integrations.elevenlabs',
     'apps.integrations.llm',
+    'apps.audio_player',
 ]
 
 MIDDLEWARE = [
