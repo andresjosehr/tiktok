@@ -11,9 +11,11 @@ const AUTO_JUMP_DISTANCE = 150
 const worldElem = document.querySelector("[data-world]")
 const scoreElem = document.querySelector("[data-score]")
 const highScoreElem = document.querySelector("[data-high-score]")
+const pointSound = document.getElementById('point-sound')
 
 let highScore = localStorage.getItem('dinoHighScore') || 0
 highScoreElem.textContent = Math.floor(highScore)
+let lastPointMilestone = 0
 
 setPixelToWorldScale()
 window.addEventListener("resize", setPixelToWorldScale)
@@ -78,6 +80,16 @@ function updateScore(delta) {
   const currentScore = Math.floor(score)
   scoreElem.textContent = currentScore
 
+  // Reproducir sonido cada 100 puntos
+  const currentMilestone = Math.floor(currentScore / 100) * 100
+  if (currentMilestone > lastPointMilestone && currentMilestone > 0) {
+    if (pointSound) {
+      pointSound.currentTime = 0
+      pointSound.play().catch(e => console.log('Error reproduciendo sonido de puntos:', e))
+    }
+    lastPointMilestone = currentMilestone
+  }
+
   if (currentScore > highScore) {
     highScore = currentScore
     highScoreElem.textContent = highScore
@@ -89,6 +101,7 @@ function handleStart() {
   lastTime = null
   speedScale = 1.5
   score = 0
+  lastPointMilestone = 0
   isGameRunning = true
   setupCactus()
   window.requestAnimationFrame(update)
@@ -100,6 +113,7 @@ export function restartGame() {
   lastTime = null
   speedScale = 0
   score = 0
+  lastPointMilestone = 0
   scoreElem.textContent = 0
 
   // Limpiar cactus existentes

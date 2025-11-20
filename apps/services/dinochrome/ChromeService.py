@@ -3,6 +3,8 @@
 import time
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
 
 class ChromeService:
@@ -18,10 +20,12 @@ class ChromeService:
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument(f'--window-size={width},{height}')
 
-        self.driver = webdriver.Chrome(options=options)
+        # Usar webdriver-manager para instalar ChromeDriver automáticamente
+        service = Service(ChromeDriverManager().install())
+        self.driver = webdriver.Chrome(service=service, options=options)
 
         # Cargar DinoChrome local desde Django
-        self.driver.get("http://web:8000/dino/")
+        self.driver.get("http://localhost:8000/dino/")
         time.sleep(3)  # Esperar a que termine la animación de inicio
 
         # Auto-play (ya está implementado en el juego)

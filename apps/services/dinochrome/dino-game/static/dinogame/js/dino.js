@@ -10,6 +10,9 @@ const GRAVITY = 0.0015
 const DINO_FRAME_COUNT = 2
 const FRAME_TIME = 100
 
+// Sonido de salto
+const jumpSound = document.getElementById('jump-sound')
+
 let isJumping
 let dinoFrame
 let currentFrameTime
@@ -26,6 +29,13 @@ export function setupDino() {
 
 export function triggerJump() {
   if (isJumping) return
+
+  // Reproducir sonido de salto
+  if (jumpSound) {
+    jumpSound.currentTime = 0
+    jumpSound.play().catch(e => console.log('Error reproduciendo sonido de salto:', e))
+  }
+
   yVelocity = JUMP_SPEED
   isJumping = true
 }
@@ -72,6 +82,12 @@ function handleJump(delta) {
 
 function onJump(e) {
   if ((e.code !== "Space" && e.code !== "ArrowUp") || isJumping) return
+
+  // Reproducir sonido de salto
+  if (jumpSound) {
+    jumpSound.currentTime = 0
+    jumpSound.play().catch(e => console.log('Error reproduciendo sonido de salto:', e))
+  }
 
   yVelocity = JUMP_SPEED
   isJumping = true

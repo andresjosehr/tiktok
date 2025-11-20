@@ -32,7 +32,7 @@ class DinoChromeService(BaseQueueService):
         from datetime import datetime
         self.session_start = datetime.now()
 
-        # Inicializar navegador Chrome con DinoChrome
+        # Inicializar navegador Chrome con DinoChrome (con interfaz gráfica)
         self.chrome.initialize_browser(headless=False)
 
     def on_stop(self):
@@ -92,9 +92,31 @@ class DinoChromeService(BaseQueueService):
 
             print(f"[DINOCHROME] 🎁 Procesando regalo: {gift_name} (Queue ID: {queue_item.id})")
 
-            # Si es una rosa, reiniciar el juego y reproducir audio
-            if 'rose' in gift_name or 'rosa' in gift_name:
-                print(f"[DINOCHROME] 🌹 Rosa detectada! (Queue ID: {queue_item.id})")
+            # Si es "Rose", corregir que es "Rosa" con TTS
+            if 'rose' in gift_name and 'cream' not in gift_name:
+                print(f"[DINOCHROME] 🌹 Rose detectada - Corrigiendo (Queue ID: {queue_item.id})")
+                username = live_event.user_nickname or live_event.user_unique_id or 'alguien'
+
+                try:
+                    # Generar audio simple de corrección
+                    correction_text = f"No es 'Rose' {username}, es 'Rosa'... ROSA!"
+                    audio_file = self.elevenlabs.text_to_speech_and_save(
+                        correction_text,
+                        voice_id="KHCvMklQZZo0O30ERnVn",
+                        play_audio=False,
+                        wait=False
+                    )
+                    if audio_file:
+                        self.elevenlabs.play_audio(audio_file, wait=True)
+                        print(f"[DINOCHROME] ✅ Corrección reproducida (Queue ID: {queue_item.id})")
+                except Exception as e:
+                    print(f"[DINOCHROME] ❌ Error en corrección: {e}")
+
+                return True
+
+            # Si es un cono de helado, reiniciar el juego y reproducir audio
+            if 'ice cream' in gift_name or 'cone' in gift_name:
+                print(f"[DINOCHROME] 🍦 Cono de helado detectado! (Queue ID: {queue_item.id})")
 
                 # Generar texto dinámico con LLM usando prompts variados
                 username = live_event.user_nickname or live_event.user_unique_id or 'alguien'
@@ -102,51 +124,63 @@ class DinoChromeService(BaseQueueService):
                 # Sistema de prompts variados con diferentes emociones y contextos
                 system_prompts = [
                     # Enojado / Frustrado
-                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Estás frustrado pero de forma cómica. Genera UNA SOLA FRASE corta (máximo 200 caracteres) expresando tu frustración de forma exagerada pero divertida. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. PROHIBIDO usar palabras como: muerte, muerto, morir, suicidio, matar, asesinar, maldita/o, diablos, infierno, o cualquier referencia a violencia, daño físico o temas sensibles. Contenido 100% familiar y apropiado para TikTok.",
+                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó un cono de helado que reinició tu juego. Estás frustrado pero de forma cómica. Genera UNA SOLA FRASE corta (máximo 200 caracteres) expresando tu frustración de forma exagerada pero divertida. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. PROHIBIDO usar palabras como: muerte, muerto, morir, suicidio, matar, asesinar, maldita/o, diablos, infierno, o cualquier referencia a violencia, daño físico o temas sensibles. Contenido 100% familiar y apropiado para TikTok.",
 
                     # Dramático / Exagerado
-                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Eres dramático y exagerado. Genera UNA SOLA FRASE corta (máximo 200 caracteres) como si fuera una tragedia cómica. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. PROHIBIDO usar palabras como: muerte, muerto, morir, suicidio, matar, asesinar, maldita/o, diablos, infierno, o cualquier referencia a violencia, daño físico o temas sensibles. Contenido 100% familiar y apropiado para TikTok.",
+                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó un cono de helado que reinició tu juego. Eres dramático y exagerado. Genera UNA SOLA FRASE corta (máximo 200 caracteres) como si fuera una tragedia cómica. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. PROHIBIDO usar palabras como: muerte, muerto, morir, suicidio, matar, asesinar, maldita/o, diablos, infierno, o cualquier referencia a violencia, daño físico o temas sensibles. Contenido 100% familiar y apropiado para TikTok.",
 
                     # Sarcástico / Irónico
-                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Eres sarcástico. Genera UNA SOLA FRASE corta (máximo 200 caracteres) agradeciendo irónicamente. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. PROHIBIDO usar palabras como: muerte, muerto, morir, suicidio, matar, asesinar, maldita/o, diablos, infierno, o cualquier referencia a violencia, daño físico o temas sensibles. Contenido 100% familiar y apropiado para TikTok.",
+                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó un cono de helado que reinició tu juego. Eres sarcástico. Genera UNA SOLA FRASE corta (máximo 200 caracteres) agradeciendo irónicamente. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. PROHIBIDO usar palabras como: muerte, muerto, morir, suicidio, matar, asesinar, maldita/o, diablos, infierno, o cualquier referencia a violencia, daño físico o temas sensibles. Contenido 100% familiar y apropiado para TikTok.",
 
                     # Resignado / Filosófico
-                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Estás resignado pero filosófico. Genera UNA SOLA FRASE corta (máximo 200 caracteres) aceptando tu destino de forma graciosa. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. PROHIBIDO usar palabras como: muerte, muerto, morir, suicidio, matar, asesinar, maldita/o, diablos, infierno, o cualquier referencia a violencia, daño físico o temas sensibles. Contenido 100% familiar y apropiado para TikTok.",
+                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó un cono de helado que reinició tu juego. Estás resignado pero filosófico. Genera UNA SOLA FRASE corta (máximo 200 caracteres) aceptando tu destino de forma graciosa. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. PROHIBIDO usar palabras como: muerte, muerto, morir, suicidio, matar, asesinar, maldita/o, diablos, infierno, o cualquier referencia a violencia, daño físico o temas sensibles. Contenido 100% familiar y apropiado para TikTok.",
 
                     # Sorprendido / Confundido
-                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Estás confundido y sorprendido. Genera UNA SOLA FRASE corta (máximo 200 caracteres) expresando tu confusión de forma graciosa. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. PROHIBIDO usar palabras como: muerte, muerto, morir, suicidio, matar, asesinar, maldita/o, diablos, infierno, o cualquier referencia a violencia, daño físico o temas sensibles. Contenido 100% familiar y apropiado para TikTok.",
+                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó un cono de helado que reinició tu juego. Estás confundido y sorprendido. Genera UNA SOLA FRASE corta (máximo 200 caracteres) expresando tu confusión de forma graciosa. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. PROHIBIDO usar palabras como: muerte, muerto, morir, suicidio, matar, asesinar, maldita/o, diablos, infierno, o cualquier referencia a violencia, daño físico o temas sensibles. Contenido 100% familiar y apropiado para TikTok.",
 
                     # Agradecido pero afectado
-                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Agradeces el regalo pero lamentas el reinicio. Genera UNA SOLA FRASE corta (máximo 200 caracteres) siendo amable pero dramático. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. PROHIBIDO usar palabras como: muerte, muerto, morir, suicidio, matar, asesinar, maldita/o, diablos, infierno, o cualquier referencia a violencia, daño físico o temas sensibles. Contenido 100% familiar y apropiado para TikTok.",
+                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó un cono de helado que reinició tu juego. Agradeces el regalo pero lamentas el reinicio. Genera UNA SOLA FRASE corta (máximo 200 caracteres) siendo amable pero dramático. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. PROHIBIDO usar palabras como: muerte, muerto, morir, suicidio, matar, asesinar, maldita/o, diablos, infierno, o cualquier referencia a violencia, daño físico o temas sensibles. Contenido 100% familiar y apropiado para TikTok.",
 
                     # Melodramático / Telenovela
-                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Hablas como personaje de telenovela mexicana. Genera UNA SOLA FRASE corta (máximo 200 caracteres) super melodramática y divertida. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. PROHIBIDO usar palabras como: muerte, muerto, morir, suicidio, matar, asesinar, maldita/o, diablos, infierno, o cualquier referencia a violencia, daño físico o temas sensibles. Contenido 100% familiar y apropiado para TikTok.",
+                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó un cono de helado que reinició tu juego. Hablas como personaje de telenovela mexicana. Genera UNA SOLA FRASE corta (máximo 200 caracteres) super melodramática y divertida. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. PROHIBIDO usar palabras como: muerte, muerto, morir, suicidio, matar, asesinar, maldita/o, diablos, infierno, o cualquier referencia a violencia, daño físico o temas sensibles. Contenido 100% familiar y apropiado para TikTok.",
 
                     # Juguetón / Bromista
-                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Eres juguetón y bromista. Genera UNA SOLA FRASE corta (máximo 200 caracteres) bromeando sobre la situación. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. PROHIBIDO usar palabras como: muerte, muerto, morir, suicidio, matar, asesinar, maldita/o, diablos, infierno, o cualquier referencia a violencia, daño físico o temas sensibles. Contenido 100% familiar y apropiado para TikTok."
+                    f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó un cono de helado que reinició tu juego. Eres juguetón y bromista. Genera UNA SOLA FRASE corta (máximo 200 caracteres) bromeando sobre la situación. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. PROHIBIDO usar palabras como: muerte, muerto, morir, suicidio, matar, asesinar, maldita/o, diablos, infierno, o cualquier referencia a violencia, daño físico o temas sensibles. Contenido 100% familiar y apropiado para TikTok."
                 ]
 
                 # Seleccionar un prompt aleatorio
                 selected_prompt = random.choice(system_prompts)
+                print(f"[DINOCHROME] 🎲 Prompt seleccionado: {selected_prompt[:100]}...")
 
                 # PASO 1: Generar texto con LLM
                 try:
                     llm_start = time.time()
+                    print(f"[DINOCHROME] 🤖 Llamando al LLM...")
                     ai_response = self.llm.chat(
-                        user_message=f"El usuario {username} acaba de donar una rosa en el stream.",
+                        user_message=f"El usuario {username} acaba de donar un cono de helado en el stream.",
                         system_message=selected_prompt,
-                        max_tokens=50,  # Reducido para frases más cortas
+                        max_tokens=200,  # Aumentado para reasoning + respuesta
                         temperature=0.9
                     )
                     llm_time = time.time() - llm_start
-                    print(f"[DINOCHROME] ⏱️ LLM generó texto en {llm_time:.2f}s")
+
+                    if ai_response:
+                        print(f"[DINOCHROME] ✅ LLM generó texto en {llm_time:.2f}s")
+                        print(f"[DINOCHROME] 💬 Respuesta LLM: '{ai_response}'")
+                    else:
+                        print(f"[DINOCHROME] ⚠️ LLM retornó None en {llm_time:.2f}s")
+                        ai_response = f"Ay {username}, me reiniciaste el juego con ese helado!"
+                        print(f"[DINOCHROME] 🔄 Usando fallback: '{ai_response}'")
+
                 except Exception as e:
                     print(f"[DINOCHROME] ❌ Error LLM: {e}")
-                    ai_response = f"Ay {username}, me reiniciaste el juego!"
+                    ai_response = f"Ay {username}, me reiniciaste el juego con ese helado!"
+                    print(f"[DINOCHROME] 🔄 Usando fallback por error: '{ai_response}'")
 
                 # Verificar que hay respuesta
                 if not ai_response:
-                    ai_response = f"Gracias por la rosa {username}, pero me reiniciaste el juego!"
+                    ai_response = f"Gracias por el cono de helado {username}, pero me reiniciaste el juego!"
+                    print(f"[DINOCHROME] 🔄 Usando fallback final: '{ai_response}'")
 
                 # PASO 2: Generar audio con ElevenLabs
                 try:
@@ -170,8 +204,8 @@ class DinoChromeService(BaseQueueService):
 
                 return True
 
-            # No es una rosa, solo retornar True
-            print(f"[DINOCHROME] ℹ️ No es una rosa, ignorando (Queue ID: {queue_item.id})")
+            # No es ni rose ni cono de helado, solo retornar True
+            print(f"[DINOCHROME] ℹ️ Regalo no configurado, ignorando (Queue ID: {queue_item.id})")
             return True
 
         except Exception as e:

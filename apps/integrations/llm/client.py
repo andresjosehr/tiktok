@@ -47,9 +47,11 @@ class LLMClient:
             str: Respuesta del LLM o None si falla
         """
         if not self.api_url:
+            print("[LLM] ❌ ERROR: URL no configurada")
             logger.error("[LLM] URL no configurada")
             return None
 
+        print(f"[LLM] 📤 Enviando mensaje: '{user_message[:80]}...'")
         logger.info(f"[LLM] Sending message: '{user_message[:50]}...'")
 
         # Construir mensajes
@@ -59,6 +61,7 @@ class LLMClient:
                 'role': 'system',
                 'content': system_message or self.system_prompt
             })
+            print(f"[LLM] 📋 System prompt (primeros 100 chars): '{(system_message or self.system_prompt)[:100]}...'")
         messages.append({
             'role': 'user',
             'content': user_message
@@ -70,8 +73,10 @@ class LLMClient:
         }
         if self.api_key:
             headers['Authorization'] = f'Bearer {self.api_key}'
+            print(f"[LLM] 🔑 Usando API key: ***{self.api_key[-4:] if len(self.api_key) >= 4 else '????'}")
             logger.info(f"[LLM] Using API key: ***{self.api_key[-4:]}")
         else:
+            print("[LLM] ⚠️ WARNING: No hay API key configurada!")
             logger.warning("[LLM] No API key set!")
 
         # Request body (formato OpenAI-compatible)
@@ -82,6 +87,19 @@ class LLMClient:
             'temperature': temperature,
         }
 
+        # Configurar reasoning para modelos que lo soporten (Groq)
+        if 'groq.com' in self.api_url:
+            # Para modelos GPT-OSS, usar reasoning_effort="low" para minimizar tokens de razonamiento
+            if 'gpt-oss' in self.model:
+                data['reasoning_effort'] = 'low'
+                print(f"[LLM] 🔽 Usando reasoning_effort=low (minimiza razonamiento)")
+            else:
+                # Para otros modelos, deshabilitar reasoning completamente
+                data['include_reasoning'] = False
+                print(f"[LLM] 🚫 Deshabilitando reasoning (include_reasoning=False)")
+
+        print(f"[LLM] 🌐 Enviando request a: {self.api_url}")
+        print(f"[LLM] 🤖 Modelo: {self.model}, Max tokens: {max_tokens}, Temp: {temperature}")
         logger.info(f"[LLM] Request to {self.api_url}")
         logger.debug(f"[LLM] Request body: {data}")
 
@@ -93,27 +111,56 @@ class LLMClient:
                 timeout=30
             )
 
+            print(f"[LLM] 📥 Response status: {response.status_code}")
             logger.info(f"[LLM] Response status: {response.status_code}")
 
             if response.status_code == 200:
                 result = response.json()
                 logger.debug(f"[LLM] Response JSON: {result}")
+
                 # Formato OpenAI: choices[0].message.content
-                content = result['choices'][0]['message']['content'].strip()
-                logger.info(f"[LLM] Response received: '{content[:100]}...'")
-                return content
+                message = result['choices'][0]['message']
+                content = message.get('content', '').strip()
+
+                # Verificar finish_reason
+                finish_reason = result['choices'][0].get('finish_reason')
+
+                if content:
+                    print(f"[LLM] ✅ SUCCESS: '{content}'")
+                    if finish_reason:
+                        print(f"[LLM] 🏁 Finish reason: {finish_reason}")
+                    logger.info(f"[LLM] Response received: '{content[:100]}...'")
+                    return content
+                else:
+                    # Si content está vacío
+                    print(f"[LLM] ⚠️ WARNING: Content vacío!")
+                    print(f"[LLM] 🏁 Finish reason: {finish_reason}")
+
+                    # Si hay reasoning (aunque debería estar deshabilitado)
+                    if 'reasoning' in message:
+                        reasoning = message.get('reasoning', '').strip()
+                        print(f"[LLM] 🧠 Reasoning detectado (no debería aparecer): '{reasoning[:150]}...'")
+
+                    print(f"[LLM] 📄 Full response JSON: {result}")
+                    logger.warning(f"[LLM] Empty content. Finish reason: {finish_reason}. Full JSON: {result}")
+                    return None
             else:
+                print(f"[LLM] ❌ ERROR {response.status_code}: {response.text}")
                 logger.error(f"[LLM] Error {response.status_code}: {response.text}")
                 return None
 
         except requests.exceptions.Timeout:
+            print("[LLM] ⏱️ TIMEOUT: Request timeout after 30 seconds")
             logger.error("[LLM] Request timeout after 30 seconds")
             return None
         except KeyError as e:
+            print(f"[LLM] ❌ KeyError: Formato de respuesta inesperado - clave faltante: {e}")
+            print(f"[LLM] 📄 Full response: {response.text if 'response' in locals() else 'No response'}")
             logger.error(f"[LLM] Unexpected response format - missing key: {e}")
             logger.error(f"[LLM] Full response: {response.text if 'response' in locals() else 'No response'}")
             return None
         except Exception as e:
+            print(f"[LLM] ❌ EXCEPTION: {str(e)}")
             logger.error(f"[LLM] Exception: {str(e)}", exc_info=True)
             return None
 

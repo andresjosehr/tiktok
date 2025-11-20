@@ -147,45 +147,47 @@ class ElevenLabsClient:
 
     def play_audio(self, file_path, wait=False):
         """
-        Envía audio al reproductor web (navegador Windows)
+        Reproduce audio usando VLC directamente
 
         Args:
             file_path (str): Ruta relativa del archivo desde MEDIA_ROOT
             wait (bool): Si es True, espera a que termine la reproducción (bloqueante)
 
         Returns:
-            bool: True si se envió correctamente
+            bool: True si se reprodujo correctamente
         """
         try:
+            import subprocess
             absolute_path = os.path.join(settings.MEDIA_ROOT, file_path)
 
             if not os.path.exists(absolute_path):
                 print(f"[ELEVENLABS] ❌ Archivo no encontrado: {absolute_path}")
                 return False
 
-            from apps.audio_player.views import set_audio
-            set_audio(absolute_path, channel='voice')
+            # Reproducir con VLC
+            args = ['vlc', '--intf', 'dummy', '--play-and-exit', '--no-video', absolute_path]
 
             if wait:
-                import subprocess
-                result = subprocess.run(
-                    ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-                     '-of', 'default=noprint_wrappers=1:nokey=1', absolute_path],
-                    capture_output=True,
-                    text=True
+                # Esperar a que termine (bloqueante)
+                process = subprocess.run(
+                    args,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
                 )
-                if result.returncode == 0:
-                    try:
-                        duration = float(result.stdout.strip())
-                        import time
-                        time.sleep(duration)
-                    except:
-                        pass
-
-            return True
+                print(f"[ELEVENLABS] ✅ Audio reproducido (bloqueante)")
+                return process.returncode == 0
+            else:
+                # Reproducir en segundo plano (no bloqueante)
+                subprocess.Popen(
+                    args,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+                print(f"[ELEVENLABS] ✅ Audio reproduciendo en segundo plano")
+                return True
 
         except Exception as e:
-            print(f"[ELEVENLABS] ❌ Exception enviando audio: {str(e)}")
+            print(f"[ELEVENLABS] ❌ Exception reproduciendo audio: {str(e)}")
             return False
 
     def get_voices(self):

@@ -26,7 +26,7 @@ class MusicService(BaseQueueService):
 
     Caracteristicas:
     - Usuarios ganan creditos enviando regalos especificos
-    - Comandos !cancion <nombre> para buscar en YouTube
+    - Comandos !<nombre> para buscar en YouTube (ej: !despacito)
     - Reproduccion inmediata (interrumpe cancion actual)
     - Rachas cuentan como multiples creditos
     """
@@ -166,11 +166,11 @@ class MusicService(BaseQueueService):
             username = live_event.user_unique_id
 
             # Verificar si es comando de musica
-            if not comment.lower().startswith('!cancion '):
+            if not comment.startswith('!'):
                 return True  # No es comando, pero no es error
 
             # Extraer query
-            query = comment[9:].strip()  # Remover '!cancion '
+            query = comment[1:].strip()  # Remover '!'
 
             if not query:
                 print(f"[MUSIC] Comando vacio de {username}")

@@ -13,6 +13,14 @@
   <script src="{% static 'dinogame/js/script.js' %}" type="module"></script>
 </head>
 <body>
+  <!-- Sonidos del juego -->
+  <audio id="jump-sound" preload="auto">
+    <source src="{% static 'dinochrome/effects/jump.mp3' %}" type="audio/mpeg">
+  </audio>
+  <audio id="point-sound" preload="auto">
+    <source src="{% static 'dinochrome/effects/point.mp3' %}" type="audio/mpeg">
+  </audio>
+
   <div class="world" data-world>
     <div class="score-container">
       <div class="high-score">RÉCORD <span data-high-score>0</span></div>
