@@ -97,42 +97,17 @@ class DinoChromeService(BaseQueueService):
 
             print(f"[DINOCHROME] 🎁 Procesando regalo: {gift_name} (Queue ID: {queue_item.id})")
 
-            # Si es "Rose", corregir que es "Rosa" con TTS + mostrar overlay
-            if 'rose' in gift_name and 'cream' not in gift_name:
-                print(f"[DINOCHROME] 🌹 Rose detectada - Corrigiendo (Queue ID: {queue_item.id})")
-                username = live_event.user_nickname or live_event.user_unique_id or 'alguien'
+            # Si es "You're awesome", activar GIF bailando
+            if "you're awesome" in gift_name or "awesome" in gift_name:
+                # Usar repeat_count (número de regalos en este evento)
+                gift_count = event_data.get('repeat_count', 1)
 
-                # Enviar evento al overlay de rosa PRIMERO (en paralelo con audio)
-                try:
-                    from apps.services.dinochrome.overlays.views import send_dinochrome_overlay_event
-                    send_dinochrome_overlay_event(
-                        overlay_type='rose',
-                        event_type='rose_gift',
-                        data={
-                            'username': username,
-                            'gift_name': 'Rose',
-                            'count': event_data.get('gift', {}).get('count', 1),
-                        }
-                    )
-                    print(f"[DINOCHROME] 🌹 Evento enviado al overlay de rosa")
-                except Exception as e:
-                    print(f"[DINOCHROME] ❌ Error enviando evento al overlay: {e}")
+                print(f"[DINOCHROME] 🎉 You're awesome detectado! Cantidad: x{gift_count} (Queue ID: {queue_item.id})")
 
-                # Luego generar y reproducir audio (bloqueante)
-                try:
-                    # Generar audio simple de corrección
-                    correction_text = f"No es 'Rose' {username}, es 'Rosa'... ROSA!"
-                    audio_file = self.elevenlabs.text_to_speech_and_save(
-                        correction_text,
-                        voice_id="KHCvMklQZZo0O30ERnVn",
-                        play_audio=False,
-                        wait=False
-                    )
-                    if audio_file:
-                        self.elevenlabs.play_audio(audio_file, wait=True)
-                        print(f"[DINOCHROME] ✅ Corrección reproducida (Queue ID: {queue_item.id})")
-                except Exception as e:
-                    print(f"[DINOCHROME] ❌ Error en corrección: {e}")
+                # Enviar un GIF por cada regalo
+                for i in range(gift_count):
+                    self._send_dancing_gif(live_event)
+                    print(f"[DINOCHROME] 💃 GIF {i+1}/{gift_count} enviado")
 
                 return True
 
@@ -226,20 +201,6 @@ class DinoChromeService(BaseQueueService):
 
                 return True
 
-            # Si es "Enjoy Music", activar GIF bailando
-            if 'enjoy music' in gift_name or 'music' in gift_name:
-                # Usar repeat_count (número de regalos en este evento)
-                # NO usar streak_total_count (es un contador acumulativo de todos los eventos)
-                gift_count = event_data.get('repeat_count', 1)
-
-                print(f"[DINOCHROME] 💃 Enjoy Music detectado! Cantidad: x{gift_count} (Queue ID: {queue_item.id})")
-
-                # Enviar un GIF por cada regalo
-                for i in range(gift_count):
-                    self._send_dancing_gif(live_event)
-                    print(f"[DINOCHROME] 💃 GIF {i+1}/{gift_count} enviado")
-
-                return True
 
             # No es ningún regalo configurado, solo retornar True
             print(f"[DINOCHROME] ℹ️ Regalo no configurado, ignorando (Queue ID: {queue_item.id})")
