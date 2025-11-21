@@ -26,11 +26,16 @@ class DinoChromeService(BaseQueueService):
         self.chrome = ChromeService()
         self.elevenlabs = ElevenLabsClient()
         self.llm = LLMClient()
+        self.gif_counter = 0  # Contador para secuencia de GIFs
+        self.gif_slot_queue = []  # Cola de slots disponibles [1, 2, 3, 4, 5]
 
     def on_start(self):
         """Se ejecuta al iniciar el worker"""
         from datetime import datetime
         self.session_start = datetime.now()
+
+        # Inicializar cola de slots (todos disponibles al inicio)
+        self.gif_slot_queue = [1, 2, 3, 4, 5]
 
         # Inicializar navegador Chrome con DinoChrome (con interfaz gráfica)
         self.chrome.initialize_browser(headless=False)
@@ -92,11 +97,28 @@ class DinoChromeService(BaseQueueService):
 
             print(f"[DINOCHROME] 🎁 Procesando regalo: {gift_name} (Queue ID: {queue_item.id})")
 
-            # Si es "Rose", corregir que es "Rosa" con TTS
+            # Si es "Rose", corregir que es "Rosa" con TTS + mostrar overlay
             if 'rose' in gift_name and 'cream' not in gift_name:
                 print(f"[DINOCHROME] 🌹 Rose detectada - Corrigiendo (Queue ID: {queue_item.id})")
                 username = live_event.user_nickname or live_event.user_unique_id or 'alguien'
 
+                # Enviar evento al overlay de rosa PRIMERO (en paralelo con audio)
+                try:
+                    from apps.services.dinochrome.overlays.views import send_dinochrome_overlay_event
+                    send_dinochrome_overlay_event(
+                        overlay_type='rose',
+                        event_type='rose_gift',
+                        data={
+                            'username': username,
+                            'gift_name': 'Rose',
+                            'count': event_data.get('gift', {}).get('count', 1),
+                        }
+                    )
+                    print(f"[DINOCHROME] 🌹 Evento enviado al overlay de rosa")
+                except Exception as e:
+                    print(f"[DINOCHROME] ❌ Error enviando evento al overlay: {e}")
+
+                # Luego generar y reproducir audio (bloqueante)
                 try:
                     # Generar audio simple de corrección
                     correction_text = f"No es 'Rose' {username}, es 'Rosa'... ROSA!"
@@ -204,7 +226,22 @@ class DinoChromeService(BaseQueueService):
 
                 return True
 
-            # No es ni rose ni cono de helado, solo retornar True
+            # Si es "Enjoy Music", activar GIF bailando
+            if 'enjoy music' in gift_name or 'music' in gift_name:
+                # Usar repeat_count (número de regalos en este evento)
+                # NO usar streak_total_count (es un contador acumulativo de todos los eventos)
+                gift_count = event_data.get('repeat_count', 1)
+
+                print(f"[DINOCHROME] 💃 Enjoy Music detectado! Cantidad: x{gift_count} (Queue ID: {queue_item.id})")
+
+                # Enviar un GIF por cada regalo
+                for i in range(gift_count):
+                    self._send_dancing_gif(live_event)
+                    print(f"[DINOCHROME] 💃 GIF {i+1}/{gift_count} enviado")
+
+                return True
+
+            # No es ningún regalo configurado, solo retornar True
             print(f"[DINOCHROME] ℹ️ Regalo no configurado, ignorando (Queue ID: {queue_item.id})")
             return True
 
@@ -233,3 +270,61 @@ class DinoChromeService(BaseQueueService):
     def _process_subscribe(self, live_event, queue_item):
         """Procesa evento de suscripción"""
         return True
+
+    def _send_dancing_gif(self, live_event):
+        """
+        Envía un GIF bailando a un slot disponible
+
+        Gestiona sistema de slots (máximo 5 GIFs simultáneos)
+        y secuencia de GIFs (va rotando por los 10 GIFs disponibles)
+        """
+        try:
+            from apps.services.dinochrome.overlays.views import send_dinochrome_overlay_event, AVAILABLE_GIFS
+
+            # Si no hay slots disponibles, liberar el más viejo (FIFO)
+            if not self.gif_slot_queue:
+                print(f"[DINOCHROME] ⚠️ Todos los slots ocupados, reciclando slot 1")
+                self.gif_slot_queue = [1, 2, 3, 4, 5]
+
+            # Obtener siguiente slot disponible
+            slot = self.gif_slot_queue.pop(0)
+
+            # Obtener siguiente GIF de la secuencia
+            gif_index = self.gif_counter % len(AVAILABLE_GIFS)
+            gif_filename = AVAILABLE_GIFS[gif_index]
+            self.gif_counter += 1
+
+            # Datos del evento
+            event_data = live_event.event_data
+            username = live_event.user_nickname or live_event.user_unique_id or 'Anónimo'
+            gift_name = event_data.get('gift', {}).get('name', 'Regalo')
+
+            # Enviar evento al slot
+            send_dinochrome_overlay_event(
+                overlay_type=f'gif-{slot}',
+                event_type='dancing_gif',
+                data={
+                    'username': username,
+                    'gift_name': gift_name,
+                    'gif_filename': gif_filename,
+                    'slot': slot,
+                }
+            )
+
+            print(f"[DINOCHROME] 💃 GIF enviado: {gif_filename} → Slot {slot} (Usuario: {username})")
+
+            # Programar liberación del slot después de 60 segundos
+            import threading
+            def free_slot():
+                import time
+                time.sleep(60)
+                if slot not in self.gif_slot_queue:
+                    self.gif_slot_queue.append(slot)
+                    print(f"[DINOCHROME] ♻️ Slot {slot} liberado")
+
+            threading.Thread(target=free_slot, daemon=True).start()
+
+        except Exception as e:
+            print(f"[DINOCHROME] ❌ Error enviando GIF bailando: {e}")
+            import traceback
+            traceback.print_exc()

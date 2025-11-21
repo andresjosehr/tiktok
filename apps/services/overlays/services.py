@@ -2,11 +2,13 @@
 Overlays Service - Manejo de overlays visuales para streaming
 
 Este servicio maneja eventos de TikTok y muestra overlays en OBS/streaming.
-Actualmente solo simula las acciones con timeouts y logs.
 """
 
 import time
+import logging
 from apps.queue_system.base_service import BaseQueueService
+
+logger = logging.getLogger('overlays')
 
 
 class OverlaysService(BaseQueueService):
@@ -81,8 +83,33 @@ class OverlaysService(BaseQueueService):
 
     def _process_gift(self, live_event):
         """Procesa evento de regalo"""
-        time.sleep(1.2)
-        return True
+        try:
+            # Obtener datos del regalo
+            event_data = live_event.event_data
+            gift_name = event_data.get('gift', {}).get('name', '')
+
+            # Solo procesar rosas
+            if gift_name.lower() in ['rose', 'rosa']:
+                from .views import send_overlay_event
+
+                # Preparar datos para el overlay
+                overlay_data = {
+                    'username': live_event.user_nickname or live_event.user_unique_id or 'Anónimo',
+                    'gift_name': gift_name,
+                    'count': event_data.get('gift', {}).get('count', 1),
+                }
+
+                # Enviar al overlay
+                send_overlay_event('rose_gift', overlay_data)
+
+                logger.info(f"Rosa enviada al overlay: {overlay_data['username']} x{overlay_data['count']}")
+
+            time.sleep(1.2)
+            return True
+
+        except Exception as e:
+            logger.error(f"Error procesando gift: {e}")
+            return False
 
     def _process_comment(self, live_event):
         """Procesa evento de comentario"""

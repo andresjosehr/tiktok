@@ -12,6 +12,7 @@ build/
 db.sqlite3
 media/
 staticfiles/
+tmp/
 
 # Environment
 .env

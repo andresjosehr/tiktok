@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <title>TikTok Live Overlay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            background: transparent;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .overlay-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .rose-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 1000;
+            text-align: center;
+        }
+
+        .rose-overlay.active {
+            animation: roseAnimation 3s ease-in-out forwards;
+        }
+
+        .rose-image {
+            width: 400px;
+            height: 400px;
+            filter: drop-shadow(0 0 20px rgba(255, 105, 180, 0.8));
+        }
+
+        .rose-text {
+            color: #ff69b4;
+            font-size: 48px;
+            font-weight: bold;
+            text-shadow:
+                0 0 10px rgba(255, 105, 180, 0.8),
+                0 0 20px rgba(255, 105, 180, 0.6),
+                2px 2px 4px rgba(0, 0, 0, 0.8);
+            margin-top: 20px;
+        }
+
+        .rose-username {
+            color: white;
+            font-size: 36px;
+            font-weight: normal;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            margin-top: 10px;
+        }
+
+        @keyframes roseAnimation {
+            0% {
+                transform: translate(-50%, -50%) scale(0) rotate(-180deg);
+                opacity: 0;
+            }
+            15% {
+                transform: translate(-50%, -50%) scale(1.2) rotate(0deg);
+                opacity: 1;
+            }
+            85% {
+                transform: translate(-50%, -50%) scale(1) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(0.8) rotate(10deg);
+                opacity: 0;
+            }
+        }
+
+        /* Debug info (remove in production) */
+        .debug-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #0f0;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            border-radius: 5px;
+            z-index: 9999;
+            display: none; /* Change to 'block' for debugging */
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay-container">
+        <!-- Rose overlay -->
+        <div id="roseOverlay" class="rose-overlay">
+            <div class="rose-image">
+                <!-- Rose emoji as placeholder (replace with actual image if needed) -->
+                <div style="font-size: 300px; line-height: 1;">🌹</div>
+            </div>
+            <div class="rose-text" id="roseText">¡Rosa recibida!</div>
+            <div class="rose-username" id="roseUsername"></div>
+        </div>
+
+        <!-- Debug info -->
+        <div class="debug-info" id="debugInfo">
+            Status: Conectando...<br>
+            Eventos recibidos: 0
+        </div>
+    </div>
+
+    <script>
+        let eventCount = 0;
+        const debugInfo = document.getElementById('debugInfo');
+        const roseOverlay = document.getElementById('roseOverlay');
+        const roseText = document.getElementById('roseText');
+        const roseUsername = document.getElementById('roseUsername');
+
+        function updateDebug(message) {
+            eventCount++;
+            debugInfo.innerHTML = `Status: ${message}<br>Eventos recibidos: ${eventCount}`;
+        }
+
+        function showRoseOverlay(data) {
+            // Extract data
+            const username = data.username || 'Anónimo';
+            const giftName = data.gift_name || 'Rosa';
+            const count = data.count || 1;
+
+            // Update text
+            roseText.textContent = count > 1 ? `¡${count} Rosas recibidas!` : '¡Rosa recibida!';
+            roseUsername.textContent = `De: ${username}`;
+
+            // Show animation
+            roseOverlay.classList.add('active');
+
+            // Remove animation class after completion
+            setTimeout(() => {
+                roseOverlay.classList.remove('active');
+            }, 3000);
+
+            updateDebug(`Rosa de ${username} (x${count})`);
+        }
+
+        function connectToEventStream() {
+            updateDebug('Conectando a SSE...');
+
+            const eventSource = new EventSource('/overlays/events/');
+
+            eventSource.onopen = () => {
+                updateDebug('Conectado ✓');
+                console.log('Connected to overlay event stream');
+            };
+
+            eventSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('Event received:', data);
+
+                    if (data.type === 'rose_gift') {
+                        showRoseOverlay(data.data);
+                    }
+                } catch (error) {
+                    console.error('Error parsing event:', error);
+                    updateDebug('Error: ' + error.message);
+                }
+            };
+
+            eventSource.onerror = (error) => {
+                console.error('EventSource error:', error);
+                updateDebug('Error - Reconectando...');
+                eventSource.close();
+
+                // Reconnect after 3 seconds
+                setTimeout(connectToEventStream, 3000);
+            };
+        }
+
+        // Start connection on page load
+        connectToEventStream();
+    </script>
+</body>
+</html>

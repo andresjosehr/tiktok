@@ -18,6 +18,7 @@ from apps.services.music.models import MusicCredit, MusicHistory
 from apps.services.music.youtube_client import YouTubeClient
 from apps.services.music.player import MusicPlayer
 from apps.app_config.models import Config
+from apps.tiktok_events.services import clean_text
 
 
 class MusicService(BaseQueueService):
@@ -206,14 +207,14 @@ class MusicService(BaseQueueService):
                 print(f"[MUSIC] Credito usado: {username} "
                       f"({credit.credits_available}/{credit.total_gifts} restantes)")
 
-            # Registrar en historial
+            # Registrar en historial (limpiar title para evitar problemas con emojis)
             history_entry = MusicHistory.objects.create(
                 session=live_event.session,
                 username=username,
-                query=query,
+                query=clean_text(query),
                 youtube_url=video_info['youtube_url'],
                 youtube_id=video_info['youtube_id'],
-                title=video_info['title'],
+                title=clean_text(video_info['title']),
                 duration=video_info['duration'],
                 file_path=video_info['file_path']
             )

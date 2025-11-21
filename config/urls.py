@@ -22,11 +22,14 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('dino/', include('apps.services.dinochrome.dino-game.urls')),
+    path('dinochrome-overlays/', include('apps.services.dinochrome.overlays.urls')),
     path('elevenlabs/', include('apps.integrations.elevenlabs.urls')),
     path('llm/', include('apps.integrations.llm.urls')),
     path('audio/', include('apps.audio_player.urls')),
+    path('overlays/', include('apps.services.overlays.urls')),
 ]
 
-# Serve media files in development
+# Serve media and static files in development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.BASE_DIR / 'apps')
