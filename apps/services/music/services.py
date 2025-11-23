@@ -201,6 +201,9 @@ class MusicService(BaseQueueService):
                 print(f"[MUSIC] No se pudo descargar: {query}")
                 return False
 
+            print(f"[MUSIC] Video descargado exitosamente")
+            print(f"[MUSIC] Info del video: {video_info}")
+
             # Descontar credito
             with transaction.atomic():
                 credit.use_credit()
@@ -227,6 +230,7 @@ class MusicService(BaseQueueService):
             self.user_request_active = True
 
             # Reproducir cancion
+            print(f"[MUSIC] Pasando a reproducir: {video_info['file_path']}")
             success = self.player.play(
                 video_info['file_path'],
                 on_finish_callback=lambda interrupted: self._on_song_finished(

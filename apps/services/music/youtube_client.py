@@ -3,6 +3,7 @@ Cliente de YouTube para busqueda y descarga de audio usando yt-dlp
 """
 
 import os
+import sys
 import yt_dlp
 from django.conf import settings
 
@@ -13,6 +14,9 @@ class YouTubeClient:
     def __init__(self):
         self.download_dir = os.path.join(settings.MEDIA_ROOT, 'music')
         os.makedirs(self.download_dir, exist_ok=True)
+        print(f"[YOUTUBE] Directorio de descarga configurado: {self.download_dir}")
+        print(f"[YOUTUBE] Sistema operativo: {sys.platform}")
+        print(f"[YOUTUBE] Existe directorio: {os.path.exists(self.download_dir)}")
 
     def search_and_download(self, query, max_duration=300):
         """
@@ -92,12 +96,19 @@ class YouTubeClient:
                 video_id = download_info['id']
                 file_path = os.path.join(self.download_dir, f"{video_id}.mp3")
 
+                print(f"[YOUTUBE] ID de video: {video_id}")
+                print(f"[YOUTUBE] Ruta construida: {file_path}")
+                print(f"[YOUTUBE] Tipo de ruta: {type(file_path)}")
+                print(f"[YOUTUBE] Ruta en repr: {repr(file_path)}")
+
                 # Verificar que el archivo existe
                 if not os.path.exists(file_path):
                     print(f"[YOUTUBE] Archivo no encontrado: {file_path}")
+                    print(f"[YOUTUBE] Listando directorio: {os.listdir(self.download_dir)}")
                     return None
 
                 print(f"[YOUTUBE] Descarga exitosa: {file_path}")
+                print(f"[YOUTUBE] Tamaño del archivo: {os.path.getsize(file_path)} bytes")
 
                 return {
                     'youtube_id': video_id,

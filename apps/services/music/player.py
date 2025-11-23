@@ -3,8 +3,10 @@ Manejador de reproduccion de audio para el servicio de musica
 """
 
 import os
+import sys
 import subprocess
 import threading
+import shutil
 
 
 class MusicPlayer:
@@ -30,17 +32,49 @@ class MusicPlayer:
         Returns:
             bool: True si se inició correctamente
         """
-        if not os.path.exists(file_path):
-            print(f"[PLAYER] Archivo no encontrado: {file_path}")
+        print(f"[PLAYER] ========== INICIO DE REPRODUCCION ==========")
+        print(f"[PLAYER] Ruta recibida: {file_path}")
+        print(f"[PLAYER] Tipo de ruta: {type(file_path)}")
+        print(f"[PLAYER] Ruta en repr: {repr(file_path)}")
+        print(f"[PLAYER] Sistema operativo: {sys.platform}")
+        print(f"[PLAYER] Ruta normalizada (os.path.normpath): {os.path.normpath(file_path)}")
+
+        # Verificar existencia
+        exists = os.path.exists(file_path)
+        print(f"[PLAYER] ¿Archivo existe?: {exists}")
+
+        if exists:
+            print(f"[PLAYER] Tamaño del archivo: {os.path.getsize(file_path)} bytes")
+            print(f"[PLAYER] Ruta absoluta: {os.path.abspath(file_path)}")
+        else:
+            print(f"[PLAYER] ARCHIVO NO ENCONTRADO!")
+            print(f"[PLAYER] Directorio padre: {os.path.dirname(file_path)}")
+            print(f"[PLAYER] ¿Directorio existe?: {os.path.exists(os.path.dirname(file_path))}")
+            if os.path.exists(os.path.dirname(file_path)):
+                print(f"[PLAYER] Archivos en el directorio: {os.listdir(os.path.dirname(file_path))}")
             return False
+
+        # Ubicación de VLC
+        vlc_path = shutil.which('vlc')
+        print(f"[PLAYER] VLC encontrado en: {vlc_path}")
 
         self.stop()
 
         with self.lock:
             try:
                 # Reproducir con VLC en modo headless (sin interfaz)
+                print(f"[PLAYER] Iniciando proceso VLC...")
+
+                # Construir comando de VLC
+                vlc_cmd = 'vlc'
+
+                # En Windows, usar ruta completa si shutil.which() no lo encuentra
+                if sys.platform == 'win32' and vlc_path is None:
+                    vlc_cmd = r'C:\Program Files\VideoLAN\VLC\vlc.exe'
+                    print(f"[PLAYER] Usando ruta completa de VLC para Windows: {vlc_cmd}")
+
                 process = subprocess.Popen(
-                    ['vlc', '--intf', 'dummy', '--play-and-exit', '--no-video', file_path],
+                    [vlc_cmd, '--intf', 'dummy', '--play-and-exit', '--no-video', '--volume=50', file_path],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL
                 )
@@ -58,10 +92,15 @@ class MusicPlayer:
                     monitor_thread.start()
 
                 print(f"[PLAYER] Reproduciendo con VLC: {os.path.basename(file_path)}")
+                print(f"[PLAYER] PID del proceso: {process.pid}")
+                print(f"[PLAYER] ========== FIN DE INICIO DE REPRODUCCION ==========")
                 return True
 
             except Exception as e:
                 print(f"[PLAYER] Error reproduciendo audio: {str(e)}")
+                print(f"[PLAYER] Tipo de error: {type(e).__name__}")
+                import traceback
+                print(f"[PLAYER] Traceback: {traceback.format_exc()}")
                 self.is_playing = False
                 return False
 

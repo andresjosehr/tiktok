@@ -5,7 +5,9 @@ Documentación: https://elevenlabs.io/docs/api-reference/text-to-speech
 """
 
 import os
+import sys
 import subprocess
+import shutil
 import requests
 from django.conf import settings
 from apps.app_config.models import Config
@@ -157,15 +159,23 @@ class ElevenLabsClient:
             bool: True si se reprodujo correctamente
         """
         try:
-            import subprocess
             absolute_path = os.path.join(settings.MEDIA_ROOT, file_path)
 
             if not os.path.exists(absolute_path):
                 print(f"[ELEVENLABS] ❌ Archivo no encontrado: {absolute_path}")
                 return False
 
+            # Construir comando de VLC
+            vlc_cmd = 'vlc'
+
+            # En Windows, usar ruta completa si shutil.which() no lo encuentra
+            vlc_path = shutil.which('vlc')
+            if sys.platform == 'win32' and vlc_path is None:
+                vlc_cmd = r'C:\Program Files\VideoLAN\VLC\vlc.exe'
+                print(f"[ELEVENLABS] Usando ruta completa de VLC para Windows: {vlc_cmd}")
+
             # Reproducir con VLC
-            args = ['vlc', '--intf', 'dummy', '--play-and-exit', '--no-video', absolute_path]
+            args = [vlc_cmd, '--intf', 'dummy', '--play-and-exit', '--no-video', absolute_path]
 
             if wait:
                 # Esperar a que termine (bloqueante)
