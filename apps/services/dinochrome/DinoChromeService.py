@@ -27,7 +27,7 @@ class DinoChromeService(BaseQueueService):
         self.elevenlabs = ElevenLabsClient()
         self.llm = LLMClient()
         self.gif_counter = 0  # Contador para secuencia de GIFs
-        self.gif_slot_queue = []  # Cola de slots disponibles [1, 2, 3, 4, 5]
+        self.gif_slot_queue = []  # Cola de slots disponibles [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
     def on_start(self):
         """Se ejecuta al iniciar el worker"""
@@ -35,7 +35,7 @@ class DinoChromeService(BaseQueueService):
         self.session_start = datetime.now()
 
         # Inicializar cola de slots (todos disponibles al inicio)
-        self.gif_slot_queue = [1, 2, 3, 4, 5]
+        self.gif_slot_queue = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
         # Inicializar navegador Chrome con DinoChrome (con interfaz gráfica)
         self.chrome.initialize_browser(headless=False)
@@ -298,8 +298,8 @@ class DinoChromeService(BaseQueueService):
 
             # Si no hay slots disponibles, liberar el más viejo (FIFO)
             if not self.gif_slot_queue:
-                print(f"[DINOCHROME] ⚠️ Todos los slots ocupados, reciclando slot 1")
-                self.gif_slot_queue = [1, 2, 3, 4, 5]
+                print(f"[DINOCHROME] ⚠️ Todos los slots ocupados, reciclando todos los slots")
+                self.gif_slot_queue = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
             # Obtener siguiente slot disponible
             slot = self.gif_slot_queue.pop(0)

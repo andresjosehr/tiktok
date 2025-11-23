@@ -39,12 +39,12 @@ def rose_overlay_view(request):
 
 def gif_overlay_view(request, slot):
     """
-    Overlay de GIF bailando para un slot específico (1-5)
+    Overlay de GIF bailando para un slot específico (1-10)
 
     Args:
-        slot: Número de slot (1-5)
+        slot: Número de slot (1-10)
     """
-    if slot < 1 or slot > 5:
+    if slot < 1 or slot > 10:
         slot = 1
 
     context = {
