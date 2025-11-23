@@ -17,6 +17,14 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+# Use SQLite for local development on Windows
+# MySQL will be used when DB_ENGINE environment variable is set to 'mysql'
+USE_MYSQL = os.getenv('DB_ENGINE', 'sqlite') == 'mysql'
+
+if USE_MYSQL:
+    import pymysql
+    pymysql.install_as_MySQLdb()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -89,16 +97,29 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DATABASES = {
-      'default': {
-          'ENGINE': 'django.db.backends.mysql',
-          'NAME': os.getenv('DB_NAME'),
-          'USER': os.getenv('DB_USER'),
-          'PASSWORD': os.getenv('DB_PASSWORD'),
-          'HOST': os.getenv('DB_HOST'),
-          'PORT': os.getenv('DB_PORT'),
-      }
-  }
+if USE_MYSQL:
+    # MySQL configuration (for production/Docker deployment)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.getenv('DB_NAME'),
+            'USER': os.getenv('DB_USER'),
+            'PASSWORD': os.getenv('DB_PASSWORD'),
+            'HOST': os.getenv('DB_HOST'),
+            'PORT': int(os.getenv('DB_PORT', 3306)),
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+            }
+        }
+    }
+else:
+    # SQLite configuration (for local Windows development)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
