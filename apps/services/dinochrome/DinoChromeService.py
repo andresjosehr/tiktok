@@ -128,8 +128,9 @@ class DinoChromeService(BaseQueueService):
 
             # Si es "Rose", corregir que es "Rosa" con TTS + mostrar overlay
             if 'rose' in gift_name and 'cream' not in gift_name:
-                print(f"[DINOCHROME] 🌹 Rose detectada - Corrigiendo (Queue ID: {queue_item.id})")
+                rose_start = time.time()
                 username = live_event.user_nickname or live_event.user_unique_id or 'alguien'
+                print(f"[DINOCHROME] 🌹 Rose de @{username} detectada (Queue ID: {queue_item.id})")
 
                 # Enviar evento al overlay de rosa PRIMERO (en paralelo con audio)
                 try:
@@ -143,13 +144,13 @@ class DinoChromeService(BaseQueueService):
                             'count': event_data.get('gift', {}).get('count', 1),
                         }
                     )
-                    print(f"[DINOCHROME] 🌹 Evento enviado al overlay de rosa")
+                    print(f"[DINOCHROME] 🌹 Overlay enviado")
                 except Exception as e:
-                    print(f"[DINOCHROME] ❌ Error enviando evento al overlay: {e}")
+                    print(f"[DINOCHROME] ❌ Error enviando overlay: {e}")
 
                 # Luego generar y reproducir audio (bloqueante)
                 try:
-                    # Generar audio simple de corrección
+                    tts_start = time.time()
                     correction_text = f"No es 'Rose' {username}, es 'Rosa'... ROSA!"
                     audio_file = self.elevenlabs.text_to_speech_and_save(
                         correction_text,
@@ -157,9 +158,14 @@ class DinoChromeService(BaseQueueService):
                         play_audio=False,
                         wait=False
                     )
+                    tts_time = time.time() - tts_start
+
                     if audio_file:
+                        audio_start = time.time()
                         self.elevenlabs.play_audio(audio_file, wait=True)
-                        print(f"[DINOCHROME] ✅ Corrección reproducida (Queue ID: {queue_item.id})")
+                        audio_time = time.time() - audio_start
+                        total_time = time.time() - rose_start
+                        print(f"[DINOCHROME] ✅ Rose completado | TTS:{tts_time:.1f}s + Audio:{audio_time:.1f}s = Total:{total_time:.1f}s")
                 except Exception as e:
                     print(f"[DINOCHROME] ❌ Error en corrección: {e}")
 
@@ -167,7 +173,9 @@ class DinoChromeService(BaseQueueService):
 
             # Si es un cono de helado, reiniciar el juego y reproducir audio
             if 'ice cream' in gift_name or 'cone' in gift_name:
-                print(f"[DINOCHROME] 🍦 Cono de helado detectado! (Queue ID: {queue_item.id})")
+                ice_cream_start = time.time()
+                username = live_event.user_nickname or live_event.user_unique_id or 'alguien'
+                print(f"[DINOCHROME] 🍦 Ice Cream de @{username} detectado! (Queue ID: {queue_item.id})")
 
                 # Generar texto dinámico con LLM usando prompts variados
                 username = live_event.user_nickname or live_event.user_unique_id or 'alguien'
@@ -235,18 +243,25 @@ class DinoChromeService(BaseQueueService):
 
                 # PASO 2: Generar audio con ElevenLabs
                 try:
+                    tts_start = time.time()
                     audio_file = self.elevenlabs.text_to_speech_and_save(
                         ai_response,
                         voice_id="KHCvMklQZZo0O30ERnVn",
                         play_audio=False,
                         wait=False
                     )
+                    tts_time = time.time() - tts_start
+                    print(f"[DINOCHROME] 🔊 TTS generado en {tts_time:.2f}s")
 
                     # PASO 3: Reiniciar juego + Reproducir audio simultáneamente
                     if audio_file:
                         self.chrome.restart()  # Reiniciar primero (sin latencia)
+                        audio_start = time.time()
                         self.elevenlabs.play_audio(audio_file, wait=True)  # Reproducir inmediatamente después
-                        print(f"[DINOCHROME] ✅ Proceso completado (Queue ID: {queue_item.id})")
+                        audio_time = time.time() - audio_start
+
+                        total_time = time.time() - ice_cream_start
+                        print(f"[DINOCHROME] ✅ Ice Cream completado | LLM:{llm_time:.1f}s + TTS:{tts_time:.1f}s + Audio:{audio_time:.1f}s = Total:{total_time:.1f}s")
                     else:
                         print(f"[DINOCHROME] ⚠️ No se generó archivo de audio (Queue ID: {queue_item.id})")
                 except Exception as e:

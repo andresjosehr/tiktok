@@ -95,7 +95,7 @@
             font-family: monospace;
             font-size: 12px;
             border-radius: 5px;
-            display: none; /* Change to 'block' for debugging */
+            display: block; /* Changed to block for debugging */
         }
     </style>
 </head>
@@ -121,6 +121,7 @@
     <script>
         const SLOT_NUMBER = {{ slot }};
         const GIF_DURATION = 60000; // 60 segundos en milisegundos
+        const AVAILABLE_GIFS = JSON.parse('{{ available_gifs_json|safe }}');
 
         let eventCount = 0;
         let currentTimeout = null;
@@ -161,11 +162,10 @@
 
             updateDebug(`Mostrando GIF: ${gifFilename}`);
 
-            // Ocultar después de 60 segundos
+            // Ocultar después de GIF_DURATION
             currentTimeout = setTimeout(() => {
                 gifContainer.classList.remove('visible');
-                timerProgress.classList.remove('active');
-                updateDebug('GIF ocultado (timeout)');
+                updateDebug('GIF oculto');
             }, GIF_DURATION);
         }
 

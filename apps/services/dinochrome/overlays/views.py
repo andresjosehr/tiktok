@@ -49,6 +49,7 @@ def gif_overlay_view(request, slot):
 
     context = {
         'slot': slot,
+        'available_gifs_json': json.dumps(AVAILABLE_GIFS),
     }
     return render(request, 'dinochrome_overlays/gif_slot.html', context)
 

@@ -16,17 +16,23 @@ Nota: El username de TikTok se obtiene de la tabla Config (meta_key='tiktok_user
 """
 
 import os
+import logging
 import django
 import signal
 import sys
 import time
 import threading
 from datetime import datetime
+from django.conf import settings
 from django.core.management.base import BaseCommand
 from apps.tiktok_events.services import TikTokEventCapture
 from apps.queue_system.models import Service, EventQueue
 from apps.queue_system.worker import ServiceWorker
 from apps.app_config.models import Config
+
+
+# Ruta del archivo de log
+LOG_FILE = os.path.join(settings.BASE_DIR, 'logs', 'event_system.log')
 
 
 class Command(BaseCommand):
@@ -44,6 +50,46 @@ class Command(BaseCommand):
             'start_time': None
         }
 
+    def _setup_logging(self):
+        """Configura logging a archivo (borra el anterior al iniciar)"""
+        # Crear directorio si no existe
+        log_dir = os.path.dirname(LOG_FILE)
+        os.makedirs(log_dir, exist_ok=True)
+
+        # Borrar archivo anterior si existe
+        if os.path.exists(LOG_FILE):
+            os.remove(LOG_FILE)
+
+        # Configurar logging
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='%(asctime)s [%(levelname)s] %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S',
+            handlers=[
+                logging.FileHandler(LOG_FILE, encoding='utf-8'),
+                logging.StreamHandler(sys.stdout)  # También a consola
+            ]
+        )
+
+        # Redirigir prints a logging
+        class PrintLogger:
+            def __init__(self, logger, level=logging.INFO):
+                self.logger = logger
+                self.level = level
+                self.buffer = ''
+
+            def write(self, message):
+                if message.strip():
+                    self.logger.log(self.level, message.strip())
+
+            def flush(self):
+                pass
+
+        # Redirigir stdout para capturar prints
+        sys.stdout = PrintLogger(logging.getLogger('stdout'))
+
+        logging.info(f"📝 Log iniciado: {LOG_FILE}")
+
     def add_arguments(self, parser):
         parser.add_argument(
             '--session-name',
@@ -58,6 +104,9 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # Configurar logging a archivo
+        self._setup_logging()
+
         # Configurar handlers de señales
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)

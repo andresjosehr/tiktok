@@ -15,6 +15,25 @@ from .models import Service, ServiceEventConfig, EventQueue
 class EventDispatcher:
     """Distribuye eventos a las colas de servicios suscritos"""
 
+    # Prioridades por tipo de regalo (mayor número = mayor prioridad)
+    # Los regalos no listados usan la prioridad base del ServiceEventConfig
+    GIFT_PRIORITIES = {
+        # Regalos con LLM + TTS + restart (máxima prioridad)
+        'ice_cream': 10,
+        'ice cream cone': 10,
+        'ice cream': 10,
+        'cone': 10,
+        # Regalos con TTS simple
+        'rose': 9,
+        'rosa': 9,
+        # Regalos solo con GIF
+        'awesome': 8,
+        "you're awesome": 8,
+        'youre awesome': 8,
+        'enjoy music': 8,
+        'music': 8,
+    }
+
     @staticmethod
     def dispatch(live_event):
         """
@@ -29,8 +48,21 @@ class EventDispatcher:
         results = {
             'enqueued': [],
             'discarded': [],
-            'queue_full': []
+            'queue_full': [],
+            'skipped': []
         }
+
+        # Log de entrada
+        event_info = f"{live_event.event_type} de @{live_event.user_nickname}"
+        if live_event.event_type == 'GiftEvent':
+            gift_name = EventDispatcher._get_gift_name(live_event)
+            if gift_name:
+                event_info = f"GiftEvent[{gift_name}] de @{live_event.user_nickname}"
+        elif live_event.event_type == 'CommentEvent':
+            comment = live_event.event_data.get('comment', '')[:30]
+            event_info = f"CommentEvent['{comment}'] de @{live_event.user_nickname}"
+
+        print(f"[DISPATCHER] ━━━ Distribuyendo: {event_info}")
 
         # 1. Obtener servicios activos suscritos a este tipo de evento
         configs = ServiceEventConfig.objects.filter(
@@ -39,25 +71,50 @@ class EventDispatcher:
             is_enabled=True
         ).select_related('service')
 
+        if not configs.exists():
+            print(f"[DISPATCHER] ⚠️  Sin servicios suscritos a {live_event.event_type}")
+            return results
+
         # 2. Procesar cada configuración
         for config in configs:
             result = EventDispatcher._process_service_queue(live_event, config)
+            service_name = config.service.name
 
             if result['status'] == 'enqueued':
+                priority = result.get('priority', config.priority)
                 results['enqueued'].append({
-                    'service': config.service.name,
-                    'priority': config.priority
+                    'service': service_name,
+                    'priority': priority
                 })
-            elif result['status'] == 'discarded':
-                results['discarded'].append({
-                    'service': config.service.name,
+                # Log detallado
+                queue_size = EventQueue.objects.filter(
+                    service=config.service, status='pending'
+                ).count()
+                discarded_info = ""
+                if result.get('discarded_event'):
+                    discarded_info = f" (descartó evento #{result['discarded_event']})"
+                print(f"[DISPATCHER] ✅ {service_name}: Encolado P:{priority} | Cola: {queue_size}/{config.service.max_queue_size}{discarded_info}")
+
+            elif result['status'] == 'skipped':
+                results['skipped'].append({
+                    'service': service_name,
                     'reason': result.get('reason', 'Unknown')
                 })
+                print(f"[DISPATCHER] ⏭️  {service_name}: Saltado - {result.get('reason', 'racha en curso')}")
+
+            elif result['status'] == 'discarded':
+                results['discarded'].append({
+                    'service': service_name,
+                    'reason': result.get('reason', 'Unknown')
+                })
+                print(f"[DISPATCHER] 🗑️  {service_name}: Descartado - {result.get('reason', 'cola llena')}")
+
             elif result['status'] == 'queue_full':
                 results['queue_full'].append({
-                    'service': config.service.name,
+                    'service': service_name,
                     'reason': 'Cola llena sin eventos descartables'
                 })
+                print(f"[DISPATCHER] 🔴 {service_name}: Cola llena ({config.service.max_queue_size}/{config.service.max_queue_size})")
 
         return results
 
@@ -81,56 +138,67 @@ class EventDispatcher:
             if live_event.streak_status != 'end':
                 return {
                     'status': 'skipped',
-                    'reason': 'Evento no stackable - esperando fin de racha'
+                    'reason': f'Racha en curso (status={live_event.streak_status})'
                 }
 
-        # 2. Verificar tamaño de cola
+        # 2. Calcular prioridad efectiva (considerando tipo de regalo)
+        effective_priority = config.priority
+        if live_event.event_type == 'GiftEvent':
+            gift_name = EventDispatcher._get_gift_name(live_event)
+            if gift_name:
+                gift_priority = EventDispatcher.GIFT_PRIORITIES.get(gift_name.lower())
+                if gift_priority is not None:
+                    effective_priority = gift_priority
+
+        # 3. Verificar tamaño de cola
         current_queue_size = EventQueue.objects.filter(
             service=service,
             status='pending'
         ).count()
 
-        # 3. Si hay espacio, encolar directamente
+        # 4. Si hay espacio, encolar directamente
         if current_queue_size < service.max_queue_size:
             EventDispatcher._enqueue_event(live_event, config)
-            return {'status': 'enqueued'}
+            return {'status': 'enqueued', 'priority': effective_priority}
 
-        # 3. Cola llena - intentar descartar eventos de menor prioridad
+        # 5. Cola llena - intentar descartar eventos de menor prioridad
         if config.is_discardable:
             # El nuevo evento es descartable
             # Intentar encontrar un evento descartable de menor prioridad
-            discarded = EventDispatcher._try_discard_lower_priority(service, config.priority)
+            discarded = EventDispatcher._try_discard_lower_priority(service, effective_priority)
 
             if discarded:
                 # Se descartó un evento de menor prioridad, encolar el nuevo
                 EventDispatcher._enqueue_event(live_event, config)
                 return {
                     'status': 'enqueued',
+                    'priority': effective_priority,
                     'discarded_event': discarded.id
                 }
             else:
                 # No hay eventos de menor prioridad descartables, descartar este
                 return {
                     'status': 'discarded',
-                    'reason': 'Cola llena - evento descartable sin eventos de menor prioridad'
+                    'reason': f'Cola llena, sin eventos P<{effective_priority} descartables'
                 }
         else:
             # El nuevo evento NO es descartable
             # Intentar descartar un evento de menor prioridad que SÍ sea descartable
-            discarded = EventDispatcher._try_discard_lower_priority(service, config.priority)
+            discarded = EventDispatcher._try_discard_lower_priority(service, effective_priority)
 
             if discarded:
                 # Se descartó un evento descartable de menor prioridad
                 EventDispatcher._enqueue_event(live_event, config)
                 return {
                     'status': 'enqueued',
+                    'priority': effective_priority,
                     'discarded_event': discarded.id
                 }
             else:
                 # No se puede descartar nada, cola llena con eventos importantes
                 return {
                     'status': 'queue_full',
-                    'reason': 'Cola llena con eventos no descartables de mayor o igual prioridad'
+                    'reason': f'Cola llena ({current_queue_size}/{service.max_queue_size}), evento no descartable'
                 }
 
     @staticmethod
@@ -142,14 +210,48 @@ class EventDispatcher:
             live_event: El evento a encolar
             config: ServiceEventConfig con la configuración
         """
+        # Determinar prioridad (puede ser sobrescrita por tipo de regalo)
+        priority = config.priority
+        gift_name = None
+
+        # Para GiftEvent, verificar si hay prioridad específica por regalo
+        if live_event.event_type == 'GiftEvent':
+            gift_name = EventDispatcher._get_gift_name(live_event)
+            if gift_name:
+                gift_priority = EventDispatcher.GIFT_PRIORITIES.get(gift_name.lower())
+                if gift_priority is not None:
+                    priority = gift_priority
+
         EventQueue.objects.create(
             service=config.service,
             live_event=live_event,
             session=live_event.session,
-            priority=config.priority,
+            priority=priority,
             is_async=config.is_async,
             status='pending'
         )
+
+    @staticmethod
+    def _get_gift_name(live_event):
+        """
+        Extrae el nombre del regalo de event_data
+
+        Args:
+            live_event: El evento con los datos del regalo
+
+        Returns:
+            str o None: Nombre del regalo o None si no se encuentra
+        """
+        try:
+            event_data = live_event.event_data
+            if isinstance(event_data, dict):
+                # Estructura: event_data['gift']['name']
+                gift = event_data.get('gift', {})
+                if isinstance(gift, dict):
+                    return gift.get('name')
+        except Exception:
+            pass
+        return None
 
     @staticmethod
     def _try_discard_lower_priority(service, new_priority):
@@ -182,6 +284,7 @@ class EventDispatcher:
                 if event_to_discard.priority < new_priority:
                     # Marcar como descartado
                     event_to_discard.mark_discarded()
+                    print(f"[DISPATCHER] 🗑️  Descartado evento P:{event_to_discard.priority} para hacer espacio a P:{new_priority}")
                     return event_to_discard
 
         return None

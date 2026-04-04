@@ -74,7 +74,7 @@ class MusicPlayer:
                     print(f"[PLAYER] Usando ruta completa de VLC para Windows: {vlc_cmd}")
 
                 process = subprocess.Popen(
-                    [vlc_cmd, '--intf', 'dummy', '--play-and-exit', '--no-video', '--volume=50', file_path],
+                    [vlc_cmd, '--intf', 'dummy', '--play-and-exit', '--no-video', '--gain=0.1', file_path],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL
                 )

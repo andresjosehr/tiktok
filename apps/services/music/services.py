@@ -116,6 +116,7 @@ class MusicService(BaseQueueService):
         try:
             event_data = live_event.event_data
             username = live_event.user_unique_id
+            nickname = live_event.user_nickname or username
 
             # Verificar si es el regalo correcto (GG)
             gift_name = event_data.get('gift', {}).get('name', '').lower()
@@ -128,10 +129,9 @@ class MusicService(BaseQueueService):
 
             # Si es una racha, contar todos los regalos
             if live_event.is_streaking:
-                # Obtener cantidad de la racha
-                gift_data = event_data.get('gift', {})
                 repeat_count = event_data.get('repeatCount', 1)
                 credit_count = repeat_count
+                print(f"[MUSIC] 🔥 Racha detectada: @{nickname} x{repeat_count} GG")
 
             # Asignar creditos
             with transaction.atomic():
@@ -142,14 +142,14 @@ class MusicService(BaseQueueService):
 
                 credit.add_gifts(credit_count)
 
-                action = "Nuevos creditos" if created else "Creditos agregados"
-                print(f"[MUSIC] {action}: {username} +{credit_count} "
-                      f"(Total: {credit.credits_available}/{credit.total_gifts})")
+                emoji = "🆕" if created else "➕"
+                print(f"[MUSIC] {emoji} Créditos @{nickname}: +{credit_count} "
+                      f"(Disponibles: {credit.credits_available}/{credit.total_gifts})")
 
             return True
 
         except Exception as e:
-            print(f"[MUSIC] Error procesando regalo: {str(e)}")
+            print(f"[MUSIC] ❌ Error procesando regalo: {str(e)}")
             return False
 
     def _process_comment(self, live_event):
@@ -162,9 +162,13 @@ class MusicService(BaseQueueService):
         Returns:
             bool: True si se proceso el comando
         """
+        import time as time_module
+        start_time = time_module.time()
+
         try:
             comment = live_event.event_data.get('comment', '').strip()
             username = live_event.user_unique_id
+            nickname = live_event.user_nickname or username
 
             # Verificar si es comando de musica
             if not comment.startswith('!'):
@@ -174,8 +178,10 @@ class MusicService(BaseQueueService):
             query = comment[1:].strip()  # Remover '!'
 
             if not query:
-                print(f"[MUSIC] Comando vacio de {username}")
+                print(f"[MUSIC] ⚠️  Comando vacío de @{nickname}")
                 return False
+
+            print(f"[MUSIC] 🎵 Comando recibido: '{query}' de @{nickname}")
 
             # Verificar creditos
             try:
@@ -184,31 +190,33 @@ class MusicService(BaseQueueService):
                     username=username
                 )
             except MusicCredit.DoesNotExist:
-                print(f"[MUSIC] {username} sin creditos (no ha enviado regalos)")
+                print(f"[MUSIC] ❌ @{nickname} sin créditos (no ha enviado GG)")
                 return False
 
             if credit.credits_available <= 0:
-                print(f"[MUSIC] {username} sin creditos disponibles "
+                print(f"[MUSIC] ❌ @{nickname} sin créditos disponibles "
                       f"({credit.credits_used}/{credit.total_gifts} usados)")
                 return False
 
             # Buscar y descargar cancion
-            print(f"[MUSIC] Buscando: '{query}' (solicitado por {username})")
+            print(f"[MUSIC] 🔍 Buscando en YouTube: '{query}'...")
+            download_start = time_module.time()
 
             video_info = self.youtube.search_and_download(query, self.MAX_DURATION)
 
             if not video_info:
-                print(f"[MUSIC] No se pudo descargar: {query}")
+                print(f"[MUSIC] ❌ No se pudo descargar: '{query}'")
                 return False
 
-            print(f"[MUSIC] Video descargado exitosamente")
-            print(f"[MUSIC] Info del video: {video_info}")
+            download_time = time_module.time() - download_start
+            duration_str = f"{video_info['duration']//60}:{video_info['duration']%60:02d}"
+            print(f"[MUSIC] ✅ Descargado '{video_info['title']}' ({duration_str}) en {download_time:.1f}s")
 
             # Descontar credito
             with transaction.atomic():
                 credit.use_credit()
-                print(f"[MUSIC] Credito usado: {username} "
-                      f"({credit.credits_available}/{credit.total_gifts} restantes)")
+                print(f"[MUSIC] 💳 Crédito usado: @{nickname} "
+                      f"(Restantes: {credit.credits_available}/{credit.total_gifts})")
 
             # Registrar en historial (limpiar title para evitar problemas con emojis)
             history_entry = MusicHistory.objects.create(
@@ -224,13 +232,13 @@ class MusicService(BaseQueueService):
 
             # Marcar cancion actual como interrumpida si existe
             if self.current_history_entry and self.player.is_currently_playing():
+                print(f"[MUSIC] ⏭️  Interrumpiendo canción actual para @{nickname}")
                 self.current_history_entry.mark_finished(interrupted=True)
 
             # Indicar que hay un request de usuario activo
             self.user_request_active = True
 
             # Reproducir cancion
-            print(f"[MUSIC] Pasando a reproducir: {video_info['file_path']}")
             success = self.player.play(
                 video_info['file_path'],
                 on_finish_callback=lambda interrupted: self._on_song_finished(
@@ -239,17 +247,18 @@ class MusicService(BaseQueueService):
                 )
             )
 
+            total_time = time_module.time() - start_time
             if success:
                 self.current_history_entry = history_entry
-                print(f"[MUSIC] Reproduciendo: {video_info['title']}")
+                print(f"[MUSIC] ▶️  Reproduciendo: '{video_info['title']}' ({duration_str}) | Total: {total_time:.1f}s")
             else:
-                print(f"[MUSIC] Error reproduciendo: {video_info['title']}")
+                print(f"[MUSIC] ❌ Error reproduciendo: '{video_info['title']}'")
                 history_entry.mark_finished(interrupted=True)
 
             return success
 
         except Exception as e:
-            print(f"[MUSIC] Error procesando comentario: {str(e)}")
+            print(f"[MUSIC] ❌ Error procesando comentario: {str(e)}")
             return False
 
     def _on_song_finished(self, history_entry, interrupted):

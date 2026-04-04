@@ -106,6 +106,16 @@ When queue is full (size >= max_queue_size):
 2. If new event is NOT discardable: discard lower-priority discardable event if exists, else drop new event
 3. Priority comparison: only discard if existing event priority < new event priority
 
+### Gift-Based Priority (`dispatcher.py`)
+
+For GiftEvent, priority is determined by gift name (overrides ServiceEventConfig.priority):
+- `ice_cream`, `ice cream cone`, `cone` → P:10 (LLM + TTS + restart)
+- `rose`, `rosa` → P:9 (TTS simple)
+- `awesome`, `enjoy music`, `music` → P:8 (GIF only)
+- Other gifts → Use ServiceEventConfig.priority (default P:10)
+
+This ensures Ice Cream is processed before Rose even if Rose arrives first.
+
 ### Worker Threading Model
 
 - Main thread per service runs `_run_loop()`

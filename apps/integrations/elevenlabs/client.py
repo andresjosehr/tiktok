@@ -174,8 +174,8 @@ class ElevenLabsClient:
                 vlc_cmd = r'C:\Program Files\VideoLAN\VLC\vlc.exe'
                 print(f"[ELEVENLABS] Usando ruta completa de VLC para Windows: {vlc_cmd}")
 
-            # Reproducir con VLC
-            args = [vlc_cmd, '--intf', 'dummy', '--play-and-exit', '--no-video', absolute_path]
+            # Reproducir con VLC a volumen máximo (TTS)
+            args = [vlc_cmd, '--intf', 'dummy', '--play-and-exit', '--no-video', '--no-volume-save', '--volume=300', absolute_path]
 
             if wait:
                 # Esperar a que termine (bloqueante)

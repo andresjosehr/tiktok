@@ -194,50 +194,55 @@ class ServiceWorker:
         Args:
             queue_item: El item de la cola a procesar
         """
+        start_time = time.time()
+        live_event = queue_item.live_event
+        event_type = live_event.event_type
+        username = live_event.user_nickname or live_event.user_unique_id or 'Unknown'
+
+        # Info adicional para GiftEvent
+        extra_info = ""
+        if event_type == 'GiftEvent':
+            gift_name = live_event.event_data.get('gift', {}).get('name', '')
+            extra_info = f"[{gift_name}] "
+
         try:
             # Cerrar conexiones viejas (importante en threads)
             close_old_connections()
 
             # Hook: antes de procesar
-            self.service_instance.on_event_received(
-                queue_item.live_event,
-                queue_item
-            )
+            self.service_instance.on_event_received(live_event, queue_item)
 
             # Procesar el evento
-            success = self.service_instance.process_event(
-                queue_item.live_event,
-                queue_item
-            )
+            success = self.service_instance.process_event(live_event, queue_item)
+
+            # Calcular tiempo
+            elapsed = (time.time() - start_time) * 1000
 
             # Marcar resultado
             if success:
                 queue_item.mark_completed()
                 self._log(
-                    f"✅ [{self.service.name}] {queue_item.live_event.event_type} "
-                    f"(P:{queue_item.priority}) completado"
+                    f"✅ [{self.service.name}] {event_type}{extra_info}de @{username} "
+                    f"(P:{queue_item.priority}) completado en {elapsed:.0f}ms"
                 )
             else:
                 queue_item.mark_failed()
                 self._log(
-                    f"❌ [{self.service.name}] {queue_item.live_event.event_type} "
-                    f"(P:{queue_item.priority}) falló",
+                    f"❌ [{self.service.name}] {event_type}{extra_info}de @{username} "
+                    f"(P:{queue_item.priority}) falló en {elapsed:.0f}ms",
                     force=True
                 )
 
             # Hook: después de procesar
-            self.service_instance.on_event_processed(
-                queue_item.live_event,
-                queue_item,
-                success
-            )
+            self.service_instance.on_event_processed(live_event, queue_item, success)
 
         except Exception as e:
+            elapsed = (time.time() - start_time) * 1000
             # Error crítico, marcar como fallido
             queue_item.mark_failed()
             self._log(
-                f"💥 [{self.service.name}] Error procesando "
-                f"{queue_item.live_event.event_type}: {e}",
+                f"💥 [{self.service.name}] Error procesando {event_type}{extra_info}"
+                f"de @{username}: {e} ({elapsed:.0f}ms)",
                 force=True
             )
 
