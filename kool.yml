@@ -1,0 +1,38 @@
+scripts:
+  # --- Comandos principales (equivalentes a inv) ---
+  server:
+    - python manage.py runserver 0.0.0.0:8000
+
+  sim:
+    - python manage.py start_event_system --simulator --verbose
+
+  live:
+    - python manage.py start_event_system --verbose
+
+  db:
+    - docker compose up -d db
+    - echo "MySQL corriendo en puerto 3307"
+
+  init:
+    - python manage.py migrate
+    - python manage.py populate_initial_data
+
+  # --- Extras ---
+  stop:
+    - docker compose down
+
+  migrate:
+    - python manage.py migrate
+
+  makemigrations:
+    - python manage.py makemigrations
+
+  populate:
+    - python manage.py populate_initial_data
+
+  shell:
+    - python manage.py shell
+
+  reset-db:
+    - docker compose exec db bash -c "mysql -u root -proot123 -e 'DROP DATABASE IF EXISTS tiktok_db; CREATE DATABASE tiktok_db;'"
+    - echo "Base de datos reiniciada"

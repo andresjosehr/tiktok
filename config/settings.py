@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'apps.services.dinochrome.overlays',
     'apps.services.music',
     'apps.services.overlays',
+    'apps.services.tugofwar.game.apps.TugOfWarGameConfig',
     'apps.integrations.elevenlabs',
     'apps.integrations.llm',
     'apps.integrations.obs',

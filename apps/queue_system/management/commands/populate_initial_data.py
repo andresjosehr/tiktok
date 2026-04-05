@@ -317,15 +317,56 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(f'    {status} {config_data["event_type"]} (P:{config_data["priority"]}, {mode})')
 
+        # 5. Crear servicio Tug of War
+        self.stdout.write('\n⚔️  Creando servicio Tug of War...')
+        tugofwar, created = Service.objects.get_or_create(
+            slug='tugofwar',
+            defaults={
+                'name': 'Tug of War',
+                'service_class': 'apps.services.tugofwar.TugOfWarService.TugOfWarService',
+                'description': 'Juego interactivo Tug of War - regalos de TikTok mueven la barra',
+                'is_active': True,
+                'max_queue_size': 100
+            }
+        )
+        if created:
+            self.stdout.write(self.style.SUCCESS('  ✅ Servicio Tug of War creado'))
+        else:
+            self.stdout.write(self.style.WARNING('  ⚠️  Servicio Tug of War ya existe'))
+
+        # Configuraciones de eventos para Tug of War (solo GiftEvent)
+        tugofwar_configs = [
+            {
+                'event_type': 'GiftEvent',
+                'is_enabled': True,
+                'priority': 10,
+                'is_async': True,  # ASYNC - no bloquear
+                'is_discardable': False
+            },
+        ]
+
+        self.stdout.write('  📋 Configurando eventos para Tug of War...')
+        for config_data in tugofwar_configs:
+            config, created = ServiceEventConfig.objects.get_or_create(
+                service=tugofwar,
+                event_type=config_data['event_type'],
+                defaults=config_data
+            )
+            mode = 'ASYNC' if config_data['is_async'] else 'SYNC'
+            status = '✅' if config_data['is_enabled'] else '❌'
+            if created:
+                self.stdout.write(f'    {status} {config_data["event_type"]} (P:{config_data["priority"]}, {mode})')
+
         # Resumen final
         self.stdout.write('\n' + '='*60)
         self.stdout.write(self.style.SUCCESS('✅ Población de datos completada exitosamente!'))
         self.stdout.write('='*60)
         self.stdout.write('\n📊 Resumen:')
         self.stdout.write(f'  • Config: 8 registros (tiktok_user, elevenlabs_api, llm_*, music_*)')
-        self.stdout.write(f'  • Servicios: 3 (DinoChrome, Overlays, Music)')
+        self.stdout.write(f'  • Servicios: 4 (DinoChrome, Overlays, Music, Tug of War)')
         self.stdout.write(f'  • DinoChrome: {ServiceEventConfig.objects.filter(service=dinochrome).count()} configuraciones de eventos (SYNC)')
         self.stdout.write(f'  • Overlays: {ServiceEventConfig.objects.filter(service=overlays).count()} configuraciones de eventos (ASYNC)')
         self.stdout.write(f'  • Music: {ServiceEventConfig.objects.filter(service=music).count()} configuraciones de eventos (SYNC)')
+        self.stdout.write(f'  • Tug of War: {ServiceEventConfig.objects.filter(service=tugofwar).count()} configuraciones de eventos (ASYNC)')
         self.stdout.write('\n💡 Puedes ver la configuración en el admin de Django')
         self.stdout.write('')

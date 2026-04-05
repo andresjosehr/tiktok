@@ -1,0 +1,168 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tug of War - Hombres vs Mujeres</title>
+    <link rel="stylesheet" href="{% static 'tugofwar/css/game.css' %}">
+    <script>const STATIC_BASE = "{% static 'tugofwar/' %}";</script>
+</head>
+<body>
+<div class="tiktok-frame" id="tiktokFrame">
+
+    <video class="bg-video" autoplay muted loop playsinline>
+        <source src="{% static 'tugofwar/video/parkour.mp4' %}" type="video/mp4">
+    </video>
+
+    <div class="bg-gradient" id="bgGradient"></div>
+    <canvas id="particleCanvas"></canvas>
+
+    <div class="edge-glow left" id="edgeLeft"></div>
+    <div class="edge-glow right" id="edgeRight"></div>
+    <div class="tension-vignette" id="tensionVignette"></div>
+
+    <div class="game-safe-zone">
+    <div class="game-container" id="gameContainer">
+        <div class="game-header">
+            <div class="round-counter" id="roundCounter">Ronda 1</div>
+            <div class="category-label" id="categoryLabel">Genero</div>
+            <div class="timer" id="timer">3:00</div>
+        </div>
+        <div class="round-title" id="roundTitle">HOMBRES vs MUJERES</div>
+
+        <div class="arena" id="arena">
+            <div class="char-glow men-glow" id="menGlow"></div>
+            <canvas class="flame-aura" id="flameLeft" width="200" height="300"></canvas>
+            <div class="character men" id="charMen">&#x1F468;</div>
+            <div class="wall" id="wall"></div>
+            <div class="character women" id="charWomen">&#x1F469;</div>
+            <canvas class="flame-aura" id="flameRight" width="200" height="300"></canvas>
+            <div class="char-glow women-glow" id="womenGlow"></div>
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-side men-side" id="menBar">
+                    <span id="menPct">50%</span>
+                    <div class="shimmer"></div>
+                </div>
+                <div class="progress-side women-side" id="womenBar">
+                    <span id="womenPct">50%</span>
+                    <div class="shimmer"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="labels">
+            <span class="men-label">HOMBRES</span>
+            <span class="women-label">MUJERES</span>
+        </div>
+
+        <div class="scores">
+            <span id="menScore">0 puntos</span>
+            <span id="womenScore">0 puntos</span>
+        </div>
+
+        <div class="gifts-section">
+            <div class="team-gifts men">
+                <h3>Equipo Hombres</h3>
+                <div class="gift-buttons">
+                    <button class="gift-btn" onclick="donate('men', 1)">
+                        <img class="gift-icon" src="{% static 'tugofwar/img/gifts/gg.webp' %}" alt="GG">
+                        <span class="gift-name">GG</span>
+                        <span class="gift-power">1 punto</span>
+                    </button>
+                    <button class="gift-btn" onclick="donate('men', 1)">
+                        <img class="gift-icon" src="{% static 'tugofwar/img/gifts/maracas.webp' %}" alt="Maracas">
+                        <span class="gift-name">Maracas</span>
+                        <span class="gift-power">1 punto</span>
+                    </button>
+                    <button class="gift-btn" onclick="donate('men', 5)">
+                        <img class="gift-icon" src="{% static 'tugofwar/img/gifts/fireworks.webp' %}" alt="Fuegos artificiales">
+                        <span class="gift-name">Fuegos</span>
+                        <span class="gift-power">5 puntos</span>
+                    </button>
+                    <button class="gift-btn" onclick="donate('men', 10)">
+                        <img class="gift-icon" src="{% static 'tugofwar/img/gifts/star.webp' %}" alt="Estrella">
+                        <span class="gift-name">Estrella</span>
+                        <span class="gift-power">10 puntos</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="team-gifts women">
+                <h3>Equipo Mujeres</h3>
+                <div class="gift-buttons">
+                    <button class="gift-btn" onclick="donate('women', 1)">
+                        <img class="gift-icon" src="{% static 'tugofwar/img/gifts/ice_cream.webp' %}" alt="Cono de helado">
+                        <span class="gift-name">Helado</span>
+                        <span class="gift-power">1 punto</span>
+                    </button>
+                    <button class="gift-btn" onclick="donate('women', 1)">
+                        <img class="gift-icon" src="{% static 'tugofwar/img/gifts/love_you.webp' %}" alt="Te adoro">
+                        <span class="gift-name">Te adoro</span>
+                        <span class="gift-power">1 punto</span>
+                    </button>
+                    <button class="gift-btn" onclick="donate('women', 5)">
+                        <img class="gift-icon" src="{% static 'tugofwar/img/gifts/korean_heart.webp' %}" alt="Corazon coreano">
+                        <span class="gift-name">Corazon</span>
+                        <span class="gift-power">5 puntos</span>
+                    </button>
+                    <button class="gift-btn" onclick="donate('women', 10)">
+                        <img class="gift-icon" src="{% static 'tugofwar/img/gifts/rosa.webp' %}" alt="Rosa">
+                        <span class="gift-name">Rosa</span>
+                        <span class="gift-power">10 puntos</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div><!-- .game-safe-zone -->
+
+    <div class="win-overlay" id="winOverlay">
+        <div class="backdrop"></div>
+        <div class="win-content">
+            <div class="winner-crown" id="winnerCrown">&#x1F451;</div>
+            <div class="winner-emoji" id="winnerEmoji"></div>
+            <div class="winner-text" id="winnerText"></div>
+            <div class="winner-subtitle" id="winnerSubtitle"></div>
+        </div>
+    </div>
+
+    <div class="countdown-overlay" id="countdownOverlay">
+        <div class="countdown-next-round" id="cdLabel">SIGUIENTE RONDA</div>
+        <div class="countdown-category" id="cdCategory"></div>
+        <div class="countdown-number" id="cdNumber"></div>
+    </div>
+
+    <!-- Global scoreboards -->
+    <div class="scoreboard left-board" id="sbLeft">
+        <div class="sb-wins" id="sbLeftWins">0</div>
+        <div class="sb-pips" id="sbLeftPips"></div>
+        <div class="sb-series" id="sbLeftSeries"></div>
+    </div>
+
+    <div class="scoreboard right-board" id="sbRight">
+        <div class="sb-wins" id="sbRightWins">0</div>
+        <div class="sb-pips" id="sbRightPips"></div>
+        <div class="sb-series" id="sbRightSeries"></div>
+    </div>
+
+    <!-- Glory moment overlay -->
+    <div class="glory-flash" id="gloryFlash"></div>
+    <div class="glory-overlay" id="gloryOverlay">
+        <div class="glory-bg" id="gloryBg"></div>
+        <div class="glory-content">
+            <div class="glory-emoji" id="gloryEmoji"></div>
+            <div class="glory-title">GLORY</div>
+            <div class="glory-team" id="gloryTeam"></div>
+            <div class="glory-trophies" id="gloryTrophies"></div>
+            <div class="glory-series" id="glorySeries"></div>
+        </div>
+    </div>
+
+</div><!-- .tiktok-frame -->
+    <script src="{% static 'tugofwar/js/game.js' %}"></script>
+</body>
+</html>
