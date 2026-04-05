@@ -18,15 +18,15 @@ class EventDispatcher:
     # Prioridades por tipo de regalo (mayor número = mayor prioridad)
     # Los regalos no listados usan la prioridad base del ServiceEventConfig
     GIFT_PRIORITIES = {
-        # Regalos con LLM + TTS + restart (máxima prioridad)
-        'ice_cream': 10,
-        'ice cream cone': 10,
-        'ice cream': 10,
-        'cone': 10,
-        # Regalos con TTS simple
+        # Rosa: LLM + TTS + restart (máxima prioridad)
+        'rosa': 10,
+        # Rose: TTS corrección
         'rose': 9,
-        'rosa': 9,
-        # Regalos solo con GIF
+        # GIF bailando
+        'ice_cream': 8,
+        'ice cream cone': 8,
+        'ice cream': 8,
+        'cone': 8,
         'awesome': 8,
         "you're awesome": 8,
         'youre awesome': 8,

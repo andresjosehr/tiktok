@@ -30,11 +30,22 @@ AVAILABLE_GIFS = [
 ]
 
 
+def _is_debug_mode():
+    """Verifica si el modo debug de overlays está activo"""
+    try:
+        from apps.app_config.models import Config
+        config = Config.objects.get(meta_key='overlays_debug')
+        return config.meta_value == '1'
+    except Config.DoesNotExist:
+        return False
+
+
 def rose_overlay_view(request):
     """
     Overlay de rosa (mismo comportamiento que el overlay genérico)
     """
-    return render(request, 'dinochrome_overlays/rose.html')
+    context = {'debug_mode': _is_debug_mode()}
+    return render(request, 'dinochrome_overlays/rose.html', context)
 
 
 def gif_overlay_view(request, slot):
@@ -50,6 +61,7 @@ def gif_overlay_view(request, slot):
     context = {
         'slot': slot,
         'available_gifs_json': json.dumps(AVAILABLE_GIFS),
+        'debug_mode': _is_debug_mode(),
     }
     return render(request, 'dinochrome_overlays/gif_slot.html', context)
 

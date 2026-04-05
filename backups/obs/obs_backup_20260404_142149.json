@@ -1,0 +1,354 @@
+{
+  "exported_at": "2026-04-04T14:21:49.822112",
+  "scenes": [
+    {
+      "name": "DinoChrome2",
+      "items": [
+        {
+          "source_name": "Dino",
+          "input_kind": "window_capture",
+          "enabled": true,
+          "transform": {
+            "alignment": 5,
+            "boundsAlignment": 0,
+            "boundsHeight": 0.0,
+            "boundsType": "OBS_BOUNDS_NONE",
+            "boundsWidth": 0.0,
+            "cropBottom": 142,
+            "cropLeft": 0,
+            "cropRight": 0,
+            "cropToBounds": false,
+            "cropTop": 277,
+            "height": 0.0,
+            "positionX": 0.0,
+            "positionY": 804.0,
+            "rotation": 0.0,
+            "scaleX": 0.5625,
+            "scaleY": 0.5623959898948669,
+            "sourceHeight": 0.0,
+            "sourceWidth": 0.0,
+            "width": 0.0
+          },
+          "input_settings": {
+            "capture_window": "73400324\r\nChrome Dino Game - Google Chrome\r\ngoogle-chrome (/tmp/.org.chromium.Chromium.scoped_dir.AO5A2R)",
+            "show_cursor": false,
+            "window": "Chrome Dino Game - Google Chrome:Chrome_WidgetWin_1:chrome.exe"
+          }
+        },
+        {
+          "source_name": "Gif 8",
+          "input_kind": "browser_source",
+          "enabled": true,
+          "transform": {
+            "alignment": 5,
+            "boundsAlignment": 0,
+            "boundsHeight": 0.0,
+            "boundsType": "OBS_BOUNDS_NONE",
+            "boundsWidth": 0.0,
+            "cropBottom": 446,
+            "cropLeft": 895,
+            "cropRight": 896,
+            "cropToBounds": false,
+            "cropTop": 445,
+            "height": 2771.428466796875,
+            "positionX": 749.0,
+            "positionY": 1270.0,
+            "rotation": 0.0,
+            "scaleX": 2.5658915042877197,
+            "scaleY": 2.5661375522613525,
+            "sourceHeight": 1080.0,
+            "sourceWidth": 1920.0,
+            "width": 4926.51171875
+          },
+          "input_settings": {
+            "height": 1080,
+            "url": "http://localhost:8000/dinochrome-overlays/gif/8/",
+            "width": 1920
+          }
+        },
+        {
+          "source_name": "Gif 7",
+          "input_kind": "browser_source",
+          "enabled": true,
+          "transform": {
+            "alignment": 5,
+            "boundsAlignment": 0,
+            "boundsHeight": 0.0,
+            "boundsType": "OBS_BOUNDS_NONE",
+            "boundsWidth": 0.0,
+            "cropBottom": 441,
+            "cropLeft": 909,
+            "cropRight": 902,
+            "cropToBounds": false,
+            "cropTop": 451,
+            "height": 2889.574462890625,
+            "positionX": 518.0,
+            "positionY": 1321.5,
+            "rotation": 0.0,
+            "scaleX": 2.678899049758911,
+            "scaleY": 2.6755318641662598,
+            "sourceHeight": 1080.0,
+            "sourceWidth": 1920.0,
+            "width": 5143.486328125
+          },
+          "input_settings": {
+            "height": 1080,
+            "url": "http://localhost:8000/dinochrome-overlays/gif/7/",
+            "width": 1920
+          }
+        },
+        {
+          "source_name": "Gif 6",
+          "input_kind": "browser_source",
+          "enabled": true,
+          "transform": {
+            "alignment": 5,
+            "boundsAlignment": 0,
+            "boundsHeight": 0.0,
+            "boundsType": "OBS_BOUNDS_NONE",
+            "boundsWidth": 0.0,
+            "cropBottom": 401,
+            "cropLeft": 885,
+            "cropRight": 891,
+            "cropToBounds": false,
+            "cropTop": 409,
+            "height": 2132.0,
+            "positionX": 234.0,
+            "positionY": 1277.5,
+            "rotation": 0.0,
+            "scaleX": 1.9722222089767456,
+            "scaleY": 1.974074125289917,
+            "sourceHeight": 1080.0,
+            "sourceWidth": 1920.0,
+            "width": 3786.666748046875
+          },
+          "input_settings": {
+            "height": 1080,
+            "url": "http://localhost:8000/dinochrome-overlays/gif/6/",
+            "width": 1920
+          }
+        },
+        {
+          "source_name": "Gif 5",
+          "input_kind": "browser_source",
+          "enabled": true,
+          "transform": {
+            "alignment": 5,
+            "boundsAlignment": 0,
+            "boundsHeight": 0.0,
+            "boundsType": "OBS_BOUNDS_NONE",
+            "boundsWidth": 0.0,
+            "cropBottom": 440,
+            "cropLeft": 892,
+            "cropRight": 895,
+            "cropToBounds": false,
+            "cropTop": 446,
+            "height": 2276.9072265625,
+            "positionX": 0.0,
+            "positionY": 1325.0,
+            "rotation": 0.0,
+            "scaleX": 2.1052632331848145,
+            "scaleY": 2.1082475185394287,
+            "sourceHeight": 1080.0,
+            "sourceWidth": 1920.0,
+            "width": 4042.10546875
+          },
+          "input_settings": {
+            "height": 1080,
+            "url": "http://localhost:8000/dinochrome-overlays/gif/5/",
+            "width": 1920
+          }
+        },
+        {
+          "source_name": "Gif 4",
+          "input_kind": "browser_source",
+          "enabled": true,
+          "transform": {
+            "alignment": 5,
+            "boundsAlignment": 0,
+            "boundsHeight": 0.0,
+            "boundsType": "OBS_BOUNDS_NONE",
+            "boundsWidth": 0.0,
+            "cropBottom": 393,
+            "cropLeft": 879,
+            "cropRight": 872,
+            "cropToBounds": false,
+            "cropTop": 396,
+            "height": 1632.98974609375,
+            "positionX": 734.0,
+            "positionY": 269.0,
+            "rotation": 0.0,
+            "scaleX": 1.510917067527771,
+            "scaleY": 1.5120275020599365,
+            "sourceHeight": 1080.0,
+            "sourceWidth": 1980.0,
+            "width": 2991.61572265625
+          },
+          "input_settings": {
+            "height": 1080,
+            "undo_uuid": "fdeb791e-598a-4686-8bef-090d8416a90f",
+            "url": "http://localhost:8000/dinochrome-overlays/gif/4/",
+            "width": 1980
+          }
+        },
+        {
+          "source_name": "Gif 3",
+          "input_kind": "browser_source",
+          "enabled": true,
+          "transform": {
+            "alignment": 5,
+            "boundsAlignment": 0,
+            "boundsHeight": 0.0,
+            "boundsType": "OBS_BOUNDS_NONE",
+            "boundsWidth": 0.0,
+            "cropBottom": 451,
+            "cropLeft": 867,
+            "cropRight": 868,
+            "cropToBounds": false,
+            "cropTop": 459,
+            "height": 2096.470458984375,
+            "positionX": 436.0,
+            "positionY": 252.0,
+            "rotation": 0.0,
+            "scaleX": 1.9405405521392822,
+            "scaleY": 1.941176414489746,
+            "sourceHeight": 1080.0,
+            "sourceWidth": 1920.0,
+            "width": 3725.837890625
+          },
+          "input_settings": {
+            "css": "",
+            "height": 1080,
+            "url": "http://localhost:8000/dinochrome-overlays/gif/3/",
+            "width": 1920
+          }
+        },
+        {
+          "source_name": "Gif 2",
+          "input_kind": "browser_source",
+          "enabled": true,
+          "transform": {
+            "alignment": 5,
+            "boundsAlignment": 0,
+            "boundsHeight": 0.0,
+            "boundsType": "OBS_BOUNDS_NONE",
+            "boundsWidth": 0.0,
+            "cropBottom": 422,
+            "cropLeft": 838,
+            "cropRight": 847,
+            "cropToBounds": false,
+            "cropTop": 429,
+            "height": 1919.47607421875,
+            "positionX": 136.0,
+            "positionY": 203.0,
+            "rotation": 0.0,
+            "scaleX": 1.7787233591079712,
+            "scaleY": 1.7772926092147827,
+            "sourceHeight": 1080.0,
+            "sourceWidth": 1920.0,
+            "width": 3415.14892578125
+          },
+          "input_settings": {
+            "css": "",
+            "height": 1080,
+            "url": "http://localhost:8000/dinochrome-overlays/gif/2/",
+            "width": 1920
+          }
+        },
+        {
+          "source_name": "Gif 1",
+          "input_kind": "browser_source",
+          "enabled": true,
+          "transform": {
+            "alignment": 5,
+            "boundsAlignment": 0,
+            "boundsHeight": 0.0,
+            "boundsType": "OBS_BOUNDS_NONE",
+            "boundsWidth": 0.0,
+            "cropBottom": 379,
+            "cropLeft": 857,
+            "cropRight": 905,
+            "cropToBounds": false,
+            "cropTop": 426,
+            "height": 1774.3255615234375,
+            "positionX": -57.0,
+            "positionY": 261.0,
+            "rotation": 0.0,
+            "scaleX": 1.7385320663452148,
+            "scaleY": 1.739534854888916,
+            "sourceHeight": 1020.0,
+            "sourceWidth": 1980.0,
+            "width": 3442.29345703125
+          },
+          "input_settings": {
+            "css": "",
+            "height": 1020,
+            "restart_when_active": true,
+            "url": "http://localhost:8000/dinochrome-overlays/gif/1/",
+            "width": 1980
+          }
+        },
+        {
+          "source_name": "Rose",
+          "input_kind": "browser_source",
+          "enabled": true,
+          "transform": {
+            "alignment": 5,
+            "boundsAlignment": 0,
+            "boundsHeight": 0.0,
+            "boundsType": "OBS_BOUNDS_NONE",
+            "boundsWidth": 0.0,
+            "cropBottom": 457,
+            "cropLeft": 731,
+            "cropRight": 740,
+            "cropToBounds": false,
+            "cropTop": 409,
+            "height": 1285.608642578125,
+            "positionX": 243.0,
+            "positionY": 610.0,
+            "rotation": 0.0,
+            "scaleX": 1.2612781524658203,
+            "scaleY": 1.260400652885437,
+            "sourceHeight": 1020.0,
+            "sourceWidth": 1920.0,
+            "width": 2421.654052734375
+          },
+          "input_settings": {
+            "height": 1020,
+            "url": "http://localhost:8000/dinochrome-overlays/rose/",
+            "width": 1920
+          }
+        },
+        {
+          "source_name": "GG",
+          "input_kind": "image_source",
+          "enabled": true,
+          "transform": {
+            "alignment": 5,
+            "boundsAlignment": 0,
+            "boundsHeight": 0.0,
+            "boundsType": "OBS_BOUNDS_NONE",
+            "boundsWidth": 0.0,
+            "cropBottom": 0,
+            "cropLeft": 0,
+            "cropRight": 0,
+            "cropToBounds": false,
+            "cropTop": 0,
+            "height": 120.00000762939453,
+            "positionX": 0.0,
+            "positionY": 1138.0,
+            "rotation": 0.0,
+            "scaleX": 1.1766630411148071,
+            "scaleY": 1.1764706373214722,
+            "sourceHeight": 102.0,
+            "sourceWidth": 917.0,
+            "width": 1079.0
+          },
+          "input_settings": {
+            "file": "C:/Users/Andres/Documents/projects/tiktok/gg.jpg"
+          }
+        }
+      ]
+    }
+  ]
+}

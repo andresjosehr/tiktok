@@ -27,6 +27,7 @@ urlpatterns = [
     path('llm/', include('apps.integrations.llm.urls')),
     path('audio/', include('apps.audio_player.urls')),
     path('overlays/', include('apps.services.overlays.urls')),
+    path('simulator/', include('apps.simulator.urls')),
 ]
 
 # Serve media and static files in development

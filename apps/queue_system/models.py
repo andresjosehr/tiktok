@@ -21,6 +21,7 @@ class Service(BaseModel):
     # Configuración
     is_active = models.BooleanField(default=True, db_index=True, help_text="Si el servicio está activo")
     max_queue_size = models.IntegerField(default=100, help_text="Tamaño máximo de la cola de eventos")
+    obs_scene_name = models.CharField(max_length=255, null=True, blank=True, help_text="Nombre de la escena en OBS asociada a este servicio")
 
     class Meta:
         db_table = 'services'

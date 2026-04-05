@@ -1,4 +1,7 @@
 from django.contrib import admin
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.urls import path
 from django.utils.html import format_html
 from django import forms
 from .models import Config
@@ -74,10 +77,55 @@ class ConfigAdminForm(forms.ModelForm):
 @admin.register(Config)
 class ConfigAdmin(admin.ModelAdmin):
     form = ConfigAdminForm
+    change_list_template = 'admin/app_config/config/change_list.html'
     list_display = ['meta_key', 'meta_value_preview', 'updated_at', 'created_at']
     search_fields = ['meta_key', 'meta_value']
     readonly_fields = ['created_at', 'updated_at']
     ordering = ['meta_key']
+
+    def get_urls(self):
+        custom_urls = [
+            path('refresh-obs/', self.admin_site.admin_view(self.refresh_obs_view), name='refresh_obs'),
+            path('toggle-debug/', self.admin_site.admin_view(self.toggle_debug_view), name='toggle_debug'),
+        ]
+        return custom_urls + super().get_urls()
+
+    def refresh_obs_view(self, request):
+        from apps.integrations.obs.client import OBSClient
+        client = OBSClient()
+        result = client.refresh_all_browser_sources()
+
+        if result['success']:
+            names = ', '.join(result['refreshed'])
+            messages.success(request, f"OBS: {result['total']} browser sources refrescados ({names})")
+        else:
+            messages.error(request, f"OBS Error: {result['error']}")
+
+        return redirect('..')
+
+    def toggle_debug_view(self, request):
+        config, created = Config.objects.get_or_create(
+            meta_key='overlays_debug',
+            defaults={'meta_value': '0'}
+        )
+        # Toggle
+        new_value = '0' if config.meta_value == '1' else '1'
+        config.meta_value = new_value
+        config.save()
+
+        state = 'ACTIVADO' if new_value == '1' else 'DESACTIVADO'
+        messages.success(request, f"Modo debug overlays: {state}")
+
+        # Refrescar OBS para que tome el cambio
+        from apps.integrations.obs.client import OBSClient
+        client = OBSClient()
+        result = client.refresh_all_browser_sources()
+        if result['success']:
+            messages.info(request, f"OBS refrescado ({result['total']} fuentes)")
+        else:
+            messages.warning(request, f"No se pudo refrescar OBS: {result.get('error', '')}")
+
+        return redirect('..')
 
     def meta_value_preview(self, obj):
         """Muestra preview del valor"""

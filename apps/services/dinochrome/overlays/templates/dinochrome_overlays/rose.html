@@ -41,6 +41,11 @@
             animation: roseAnimation 3s ease-in-out forwards;
         }
 
+        .rose-overlay.debug-visible {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+
         .rose-image {
             width: 400px;
             height: 400px;
@@ -178,6 +183,14 @@
 
                 setTimeout(connectToEventStream, 3000);
             };
+        }
+
+        // Modo debug: mostrar permanentemente
+        const DEBUG_MODE = {{ debug_mode|yesno:"true,false" }};
+        if (DEBUG_MODE) {
+            roseText.textContent = '¡5 Rosas recibidas!';
+            roseUsername.textContent = 'De: DebugUser';
+            roseOverlay.classList.add('debug-visible');
         }
 
         connectToEventStream();

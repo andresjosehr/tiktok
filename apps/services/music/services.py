@@ -124,14 +124,11 @@ class MusicService(BaseQueueService):
             if self.GIFT_NAME.lower() not in gift_name:
                 return True  # No es el regalo configurado, pero no es error
 
-            # Determinar cantidad de creditos (por rachas)
-            credit_count = 1
-
-            # Si es una racha, contar todos los regalos
-            if live_event.is_streaking:
-                repeat_count = event_data.get('repeatCount', 1)
-                credit_count = repeat_count
-                print(f"[MUSIC] 🔥 Racha detectada: @{nickname} x{repeat_count} GG")
+            # Determinar cantidad de creditos
+            # repeat_count contiene el total de regalos (1 si individual, N si racha)
+            credit_count = event_data.get('repeat_count', event_data.get('repeatCount', 1))
+            if credit_count > 1:
+                print(f"[MUSIC] 🔥 Racha de GG: @{nickname} x{credit_count}")
 
             # Asignar creditos
             with transaction.atomic():

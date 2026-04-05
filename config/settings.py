@@ -38,7 +38,7 @@ SECRET_KEY = 'django-insecure-+zcr_(ew!kbi1l6%^5rka5g8*#!03rdjpvxyvy=ls73$ux_qq!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'web']
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -60,7 +60,9 @@ INSTALLED_APPS = [
     'apps.services.overlays',
     'apps.integrations.elevenlabs',
     'apps.integrations.llm',
+    'apps.integrations.obs',
     'apps.audio_player',
+    'apps.simulator',
 ]
 
 MIDDLEWARE = [

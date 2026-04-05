@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Event Simulator</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(0,0,0,0.3);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .header h1 { font-size: 18px; color: #fff; }
+        .session-badge {
+            background: rgba(40,167,69,0.3);
+            border: 1px solid #28a745;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+        .session-badge.inactive { background: rgba(108,117,125,0.3); border-color: #6c757d; }
+        .header-actions { display: flex; gap: 8px; align-items: center; }
+
+        .container {
+            padding: 15px;
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            gap: 15px;
+        }
+        .main-area { flex: 1; min-width: 0; }
+
+        /* Toggle split */
+        .split-toggle {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .split-toggle.active { background: rgba(0,123,255,0.4); border-color: #007bff; }
+
+        /* Panels grid */
+        .panels-container { display: grid; gap: 15px; }
+        .panels-container.single { grid-template-columns: 1fr; }
+        .panels-container.split { grid-template-columns: 1fr 1fr; }
+
+        /* Panel card */
+        .panel-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 15px;
+        }
+        .panel-card .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .panel-label {
+            font-size: 12px;
+            color: #888;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        /* Username row */
+        .username-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+        .username-row input {
+            flex: 1;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .btn-small {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #ccc;
+            padding: 8px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        .btn-small:hover { background: rgba(255,255,255,0.25); }
+
+        /* Auto-rotate */
+        .auto-rotate {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            font-size: 12px;
+            color: #999;
+        }
+        .auto-rotate input[type="checkbox"] { accent-color: #007bff; }
+        .auto-rotate input[type="number"] {
+            width: 50px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            padding: 4px 6px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .rotate-counter { color: #007bff; font-weight: bold; }
+
+        /* Event type tabs */
+        .event-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .event-tab {
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #aaa;
+            transition: all 0.15s;
+        }
+        .event-tab:hover { background: rgba(255,255,255,0.15); }
+        .event-tab.active {
+            background: rgba(0,123,255,0.3);
+            border-color: #007bff;
+            color: #fff;
+        }
+
+        /* Event-specific fields */
+        .event-fields { margin-bottom: 12px; min-height: 40px; }
+        .event-fields select, .event-fields input[type="text"], .event-fields input[type="number"] {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+        .field-row { display: flex; gap: 8px; }
+        .field-row > * { flex: 1; }
+
+        /* Quick presets */
+        .presets {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+        .preset-chip {
+            padding: 4px 10px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 11px;
+            color: #bbb;
+        }
+        .preset-chip:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+        /* Quick-fire buttons */
+        .quick-fire {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .qf-btn {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            color: #fff;
+            transition: transform 0.1s, filter 0.1s;
+        }
+        .qf-btn:hover { filter: brightness(1.2); transform: scale(1.05); }
+        .qf-btn:active { transform: scale(0.95); }
+        .qf-btn.ice-cream { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .qf-btn.rose { background: linear-gradient(135deg, #f093fb, #f5576c); }
+        .qf-btn.awesome { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+        .qf-btn.gg { background: linear-gradient(135deg, #43e97b, #38f9d7); color: #1a1a2e; }
+        .qf-btn.music { background: linear-gradient(135deg, #fa709a, #fee140); color: #1a1a2e; }
+        .qf-btn.other { background: linear-gradient(135deg, #a18cd1, #fbc2eb); color: #1a1a2e; }
+
+        /* Send button */
+        .send-btn {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #28a745, #20c997);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: filter 0.15s;
+        }
+        .send-btn:hover { filter: brightness(1.1); }
+        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Event log - sidebar */
+        .event-log {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            width: 380px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 80px);
+            position: sticky;
+            top: 15px;
+        }
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .log-header h3 { font-size: 14px; color: #aaa; }
+        .log-entries { padding: 5px; overflow-y: auto; flex: 1; }
+        .log-entry {
+            padding: 6px 10px;
+            margin: 2px 0;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: monospace;
+        }
+        .log-entry.success { background: rgba(40,167,69,0.15); color: #7ddf96; }
+        .log-entry.warning { background: rgba(255,193,7,0.15); color: #ffd666; }
+        .log-entry.error { background: rgba(220,53,69,0.15); color: #f5a0a8; }
+        .log-entry .log-time { color: #666; margin-right: 8px; }
+        .log-entry .log-user { color: #4facfe; font-weight: bold; }
+
+        .btn-end-session {
+            background: rgba(220,53,69,0.3);
+            border: 1px solid #dc3545;
+            color: #f5a0a8;
+            padding: 4px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        @media (max-width: 900px) {
+            .container { flex-direction: column; }
+            .event-log {
+                width: 100%;
+                max-height: 300px;
+                position: static;
+            }
+            .panels-container.split { grid-template-columns: 1fr; }
+            .quick-fire { gap: 4px; }
+            .qf-btn { padding: 6px 10px; font-size: 11px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>TikTok Event Simulator</h1>
+        <div class="header-actions">
+            <span class="session-badge inactive" id="sessionBadge">Sin session</span>
+            <button class="btn-end-session" id="btnEndSession" onclick="endSession()" style="display:none">Terminar Session</button>
+            <button class="split-toggle" id="splitToggle" onclick="toggleSplit()">Split 4</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="main-area">
+            <div class="panels-container single" id="panelsContainer">
+                <!-- Panel 1 (siempre visible) -->
+                <div class="panel-card" id="panel-0"></div>
+            </div>
+        </div>
+
+        <!-- Event log sidebar -->
+        <div class="event-log">
+            <div class="log-header">
+                <h3>Event Log</h3>
+                <button class="btn-small" onclick="clearLog()">Limpiar</button>
+            </div>
+            <div class="log-entries" id="logEntries"></div>
+        </div>
+    </div><!-- /container -->
+
+    <script>
+        const RANDOM_USERNAMES = [
+            'Carlos_gamer', 'Maria_live', 'JuanPro', 'Sofia_tt', 'PedroStream',
+            'Ana_music', 'Luis_fan', 'Camila_vip', 'Diego_cool', 'Valentina_star',
+            'Santiago99', 'Isabella_tk', 'Mateo_fire', 'Lucia_top', 'Sebastian_gg'
+        ];
+
+        const GIFT_OPTIONS = [
+            { name: 'Rosa', label: 'Rosa (P:10 - LLM+TTS+Restart)', emoji: '🌺' },
+            { name: 'Rose', label: 'Rose (P:9 - TTS Correccion)', emoji: '🌹' },
+            { name: 'Ice Cream Cone', label: 'Ice Cream (P:8 - GIF)', emoji: '🍦' },
+            { name: "You're Awesome", label: "Awesome (P:8 - GIF)", emoji: '💃' },
+            { name: 'Enjoy Music', label: 'Enjoy Music (P:8 - GIF)', emoji: '🎶' },
+            { name: 'GG', label: 'GG (Creditos musica)', emoji: '🎮' },
+            { name: 'Other', label: 'Otro regalo (audio default)', emoji: '🎁' },
+        ];
+
+        const EVENT_TYPES = ['GiftEvent', 'CommentEvent', 'LikeEvent', 'ShareEvent', 'FollowEvent', 'JoinEvent', 'SubscribeEvent'];
+        const COMMENT_PRESETS = ['!despacito', '!shakira', '!bad bunny', '!reggaeton', 'hola', 'que pro'];
+
+        const STREAK_TIMEOUT_MS = 3000; // 3 segundos para cerrar racha
+
+        let isSplit = false;
+        let panelStates = {};
+        // Streak tracker: { 'username_giftName': { timer, count, streakId } }
+        let activeStreaks = {};
+
+        function initPanel(idx) {
+            panelStates[idx] = {
+                eventType: 'GiftEvent',
+                sendCount: 0,
+                autoRotate: false,
+                autoRotateEvery: 5,
+            };
+
+            const panel = document.getElementById(`panel-${idx}`);
+            const labelText = isSplit ? `Panel ${idx + 1}` : '';
+
+            panel.innerHTML = `
+                ${labelText ? `<div class="panel-header"><span class="panel-label">${labelText}</span></div>` : ''}
+                <div class="username-row">
+                    <input type="text" id="username-${idx}" value="${RANDOM_USERNAMES[idx % RANDOM_USERNAMES.length]}" placeholder="Username">
+                    <button class="btn-small" onclick="randomUsername(${idx})">Random</button>
+                </div>
+                <div class="auto-rotate">
+                    <label>
+                        <input type="checkbox" id="autoRotate-${idx}" onchange="panelStates[${idx}].autoRotate=this.checked">
+                        Cambiar usuario cada
+                    </label>
+                    <input type="number" id="autoRotateN-${idx}" value="5" min="1" max="100"
+                           onchange="panelStates[${idx}].autoRotateEvery=parseInt(this.value)">
+                    <span>envios</span>
+                    <span class="rotate-counter" id="rotateCounter-${idx}">0/5</span>
+                </div>
+
+                <div class="event-tabs" id="eventTabs-${idx}">
+                    ${EVENT_TYPES.map(t => `
+                        <div class="event-tab ${t === 'GiftEvent' ? 'active' : ''}"
+                             onclick="selectEventType(${idx}, '${t}')">${t.replace('Event','')}</div>
+                    `).join('')}
+                </div>
+
+                <div class="event-fields" id="eventFields-${idx}">
+                    ${renderGiftFields(idx)}
+                </div>
+
+                <div class="quick-fire">
+                    <button class="qf-btn rose" onclick="quickFire(${idx},'Rosa')">🌺 Rosa</button>
+                    <button class="qf-btn rose" onclick="quickFire(${idx},'Rose')">🌹 Rose</button>
+                    <button class="qf-btn ice-cream" onclick="quickFire(${idx},'Ice Cream Cone')">🍦 Ice Cream</button>
+                    <button class="qf-btn awesome" onclick="quickFire(${idx},&quot;You're Awesome&quot;)">💃 Awesome</button>
+                    <button class="qf-btn gg" onclick="quickFire(${idx},'GG')">🎮 GG</button>
+                    <button class="qf-btn music" onclick="quickFire(${idx},'Enjoy Music')">🎶 Music</button>
+                    <button class="qf-btn other" onclick="quickFire(${idx},'Other')">🎁 Otro</button>
+                </div>
+
+                <button class="send-btn" id="sendBtn-${idx}" onclick="sendFromPanel(${idx})">Enviar Evento</button>
+            `;
+        }
+
+        function renderGiftFields(idx) {
+            return `
+                <select id="giftName-${idx}" onchange="onGiftChange(${idx})">
+                    ${GIFT_OPTIONS.map(g => `<option value="${g.name}">${g.emoji} ${g.label}</option>`).join('')}
+                </select>
+                <div id="customGiftRow-${idx}" style="display:none">
+                    <input type="text" id="customGift-${idx}" placeholder="Nombre del regalo custom">
+                </div>
+                <div class="field-row">
+                    <input type="number" id="giftCount-${idx}" value="1" min="1" placeholder="Cantidad">
+                    <input type="number" id="diamondCount-${idx}" value="1" min="1" placeholder="Diamantes">
+                </div>
+            `;
+        }
+
+        function renderCommentFields(idx) {
+            return `
+                <div class="presets">
+                    ${COMMENT_PRESETS.map(c => `<span class="preset-chip" onclick="document.getElementById('comment-${idx}').value='${c}'">${c}</span>`).join('')}
+                </div>
+                <input type="text" id="comment-${idx}" placeholder="Escribe un comentario..." value="!despacito">
+            `;
+        }
+
+        function renderLikeFields(idx) {
+            return `<input type="number" id="likeCount-${idx}" value="1" min="1" placeholder="Cantidad de likes">`;
+        }
+
+        function onGiftChange(idx) {
+            const sel = document.getElementById(`giftName-${idx}`);
+            const row = document.getElementById(`customGiftRow-${idx}`);
+            row.style.display = sel.value === 'Other' ? 'block' : 'none';
+        }
+
+        function selectEventType(idx, type) {
+            panelStates[idx].eventType = type;
+
+            // Update tabs
+            const tabs = document.querySelectorAll(`#eventTabs-${idx} .event-tab`);
+            tabs.forEach(t => t.classList.toggle('active', t.textContent === type.replace('Event','')));
+
+            // Update fields
+            const fields = document.getElementById(`eventFields-${idx}`);
+            if (type === 'GiftEvent') fields.innerHTML = renderGiftFields(idx);
+            else if (type === 'CommentEvent') fields.innerHTML = renderCommentFields(idx);
+            else if (type === 'LikeEvent') fields.innerHTML = renderLikeFields(idx);
+            else fields.innerHTML = '<p style="color:#666;font-size:12px;">Sin campos adicionales</p>';
+        }
+
+        function randomUsername(idx) {
+            const input = document.getElementById(`username-${idx}`);
+            input.value = RANDOM_USERNAMES[Math.floor(Math.random() * RANDOM_USERNAMES.length)];
+        }
+
+        function handleAutoRotate(idx) {
+            const state = panelStates[idx];
+            if (!state.autoRotate) return;
+
+            state.sendCount++;
+            const counter = document.getElementById(`rotateCounter-${idx}`);
+            const current = state.sendCount % state.autoRotateEvery;
+            counter.textContent = `${current}/${state.autoRotateEvery}`;
+
+            if (state.sendCount % state.autoRotateEvery === 0) {
+                randomUsername(idx);
+                counter.textContent = `0/${state.autoRotateEvery}`;
+            }
+        }
+
+        function buildPayload(idx) {
+            const username = document.getElementById(`username-${idx}`).value.trim() || 'TestUser';
+            const eventType = panelStates[idx].eventType;
+            const payload = { event_type: eventType, username: username };
+
+            if (eventType === 'GiftEvent') {
+                let giftName = document.getElementById(`giftName-${idx}`).value;
+                if (giftName === 'Other') {
+                    giftName = document.getElementById(`customGift-${idx}`).value.trim() || 'Unknown Gift';
+                }
+                payload.gift_name = giftName;
+                payload.gift_count = document.getElementById(`giftCount-${idx}`).value;
+                payload.diamond_count = document.getElementById(`diamondCount-${idx}`).value;
+            } else if (eventType === 'CommentEvent') {
+                payload.comment = document.getElementById(`comment-${idx}`).value.trim() || 'Hola!';
+            } else if (eventType === 'LikeEvent') {
+                payload.like_count = document.getElementById(`likeCount-${idx}`).value;
+            }
+
+            return payload;
+        }
+
+        async function sendEvent(payload) {
+            const res = await fetch('/simulator/send/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            return await res.json();
+        }
+
+        async function sendFromPanel(idx) {
+            const btn = document.getElementById(`sendBtn-${idx}`);
+            btn.disabled = true;
+            btn.textContent = 'Enviando...';
+
+            try {
+                const payload = buildPayload(idx);
+                const result = await sendEvent(payload);
+                logResult(payload, result);
+                handleAutoRotate(idx);
+                updateSession(result);
+            } catch (e) {
+                logError(e.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Enviar Evento';
+            }
+        }
+
+        function generateStreakId() {
+            return 'streak_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+        }
+
+        async function quickFire(idx, giftName) {
+            const username = document.getElementById(`username-${idx}`).value.trim() || 'TestUser';
+            const actualGiftName = giftName === 'Other' ? 'Random Gift' : giftName;
+            const streakKey = `${username}_${actualGiftName}`;
+
+            const existing = activeStreaks[streakKey];
+
+            if (existing) {
+                // Racha en curso: enviar 'continue', incrementar count, resetear timer
+                clearTimeout(existing.timer);
+                existing.count++;
+
+                const payload = {
+                    event_type: 'GiftEvent',
+                    username: username,
+                    gift_name: actualGiftName,
+                    gift_count: existing.count,
+                    diamond_count: 1,
+                    is_streaking: true,
+                    streak_id: existing.streakId,
+                    streak_status: 'continue',
+                };
+
+                try {
+                    const result = await sendEvent(payload);
+                    logStreakEvent(payload, result, existing.count);
+                    updateSession(result);
+                } catch (e) { logError(e.message); }
+
+                // Resetear timer para cerrar racha
+                existing.timer = setTimeout(() => endStreak(streakKey, idx), STREAK_TIMEOUT_MS);
+
+            } else {
+                // Nueva racha: enviar 'start'
+                const streakId = generateStreakId();
+                const payload = {
+                    event_type: 'GiftEvent',
+                    username: username,
+                    gift_name: actualGiftName,
+                    gift_count: 1,
+                    diamond_count: 1,
+                    is_streaking: true,
+                    streak_id: streakId,
+                    streak_status: 'start',
+                };
+
+                try {
+                    const result = await sendEvent(payload);
+                    logStreakEvent(payload, result, 1);
+                    updateSession(result);
+                } catch (e) { logError(e.message); }
+
+                // Registrar racha activa
+                activeStreaks[streakKey] = {
+                    streakId: streakId,
+                    count: 1,
+                    username: username,
+                    giftName: actualGiftName,
+                    panelIdx: idx,
+                    timer: setTimeout(() => endStreak(streakKey, idx), STREAK_TIMEOUT_MS),
+                };
+            }
+        }
+
+        async function endStreak(streakKey, idx) {
+            const streak = activeStreaks[streakKey];
+            if (!streak) return;
+
+            // Enviar evento 'end' con el count total
+            const payload = {
+                event_type: 'GiftEvent',
+                username: streak.username,
+                gift_name: streak.giftName,
+                gift_count: streak.count,
+                diamond_count: 1,
+                is_streaking: false,
+                streak_id: streak.streakId,
+                streak_status: 'end',
+            };
+
+            try {
+                const result = await sendEvent(payload);
+                logResult(payload, result);
+                logStreakEnd(streak);
+                handleAutoRotate(idx);
+                updateSession(result);
+            } catch (e) { logError(e.message); }
+
+            delete activeStreaks[streakKey];
+        }
+
+        function logStreakEvent(payload, result, count) {
+            const log = document.getElementById('logEntries');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry warning';
+            entry.innerHTML = `<span class="log-time">${time}</span> `
+                + `<span class="log-user">@${payload.username}</span> `
+                + `[${payload.gift_name}] x${count} racha en curso...`;
+            log.prepend(entry);
+        }
+
+        function logStreakEnd(streak) {
+            const log = document.getElementById('logEntries');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry success';
+            entry.innerHTML = `<span class="log-time">${time}</span> `
+                + `<span class="log-user">@${streak.username}</span> `
+                + `[${streak.giftName}] racha finalizada: x${streak.count} total`;
+            log.prepend(entry);
+        }
+
+        function logResult(payload, result) {
+            const log = document.getElementById('logEntries');
+            const time = new Date().toLocaleTimeString();
+            const dr = result.dispatch_result || {};
+            const enqueued = (dr.enqueued || []).length;
+            const skipped = (dr.skipped || []).length;
+            const discarded = (dr.discarded || []).length;
+
+            let detail = '';
+            if (payload.event_type === 'GiftEvent') detail = `[${payload.gift_name}]`;
+            else if (payload.event_type === 'CommentEvent') detail = `"${payload.comment}"`;
+            else detail = payload.event_type.replace('Event','');
+
+            let cssClass = 'success';
+            if (enqueued === 0) cssClass = discarded > 0 ? 'error' : 'warning';
+
+            const services = (dr.enqueued || []).map(e => `${e.service}(P:${e.priority})`).join(', ');
+
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${cssClass}`;
+            entry.innerHTML = `<span class="log-time">${time}</span> `
+                + `<span class="log-user">@${payload.username}</span> `
+                + `${detail} → ${enqueued} encolados`
+                + (services ? ` [${services}]` : '')
+                + (skipped ? ` | ${skipped} saltados` : '')
+                + (discarded ? ` | ${discarded} descartados` : '');
+
+            log.prepend(entry);
+        }
+
+        function logError(msg) {
+            const log = document.getElementById('logEntries');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry error';
+            entry.innerHTML = `<span class="log-time">${time}</span> ERROR: ${msg}`;
+            log.prepend(entry);
+        }
+
+        function clearLog() {
+            document.getElementById('logEntries').innerHTML = '';
+        }
+
+        function updateSession(result) {
+            if (result.success) {
+                const badge = document.getElementById('sessionBadge');
+                badge.className = 'session-badge';
+                badge.textContent = `Session #${result.session_id} | ${result.session_total_events} eventos`;
+                document.getElementById('btnEndSession').style.display = 'inline-block';
+            }
+        }
+
+        async function endSession() {
+            if (!confirm('Terminar session de simulacion?')) return;
+            try {
+                await fetch('/simulator/session/end/', { method: 'POST' });
+                document.getElementById('sessionBadge').className = 'session-badge inactive';
+                document.getElementById('sessionBadge').textContent = 'Sin session';
+                document.getElementById('btnEndSession').style.display = 'none';
+            } catch (e) { logError(e.message); }
+        }
+
+        async function loadSession() {
+            try {
+                const res = await fetch('/simulator/session/');
+                const data = await res.json();
+                if (data.active) {
+                    const badge = document.getElementById('sessionBadge');
+                    badge.className = 'session-badge';
+                    badge.textContent = `Session #${data.id} | ${data.total_events} eventos`;
+                    document.getElementById('btnEndSession').style.display = 'inline-block';
+                }
+            } catch (e) {}
+        }
+
+        function toggleSplit() {
+            isSplit = !isSplit;
+            const container = document.getElementById('panelsContainer');
+            const toggle = document.getElementById('splitToggle');
+
+            if (isSplit) {
+                container.className = 'panels-container split';
+                toggle.classList.add('active');
+                toggle.textContent = 'Single';
+                // Create 4 panels
+                container.innerHTML = '';
+                for (let i = 0; i < 4; i++) {
+                    const div = document.createElement('div');
+                    div.className = 'panel-card';
+                    div.id = `panel-${i}`;
+                    container.appendChild(div);
+                }
+                for (let i = 0; i < 4; i++) initPanel(i);
+            } else {
+                container.className = 'panels-container single';
+                toggle.classList.remove('active');
+                toggle.textContent = 'Split 4';
+                container.innerHTML = '<div class="panel-card" id="panel-0"></div>';
+                initPanel(0);
+            }
+        }
+
+        // Init
+        initPanel(0);
+        loadSession();
+    </script>
+</body>
+</html>

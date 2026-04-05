@@ -203,6 +203,15 @@
             };
         }
 
+        // Modo debug: mostrar GIF permanentemente
+        const DEBUG_MODE = {{ debug_mode|yesno:"true,false" }};
+        if (DEBUG_MODE) {
+            const debugGif = AVAILABLE_GIFS[(SLOT_NUMBER - 1) % AVAILABLE_GIFS.length];
+            usernameLabel.textContent = 'DebugUser';
+            gifImage.src = "/static/dinochrome_overlays/gifs/" + debugGif;
+            gifContainer.classList.add('visible');
+        }
+
         // Start connection on page load
         connectToEventStream();
     </script>
