@@ -1,7 +1,59 @@
 from django.contrib import admin
 from django.utils.html import format_html
 import json
-from .models import LiveEvent, LiveSession
+from .models import LiveEvent, LiveSession, TikTokAccount
+
+
+@admin.register(TikTokAccount)
+class TikTokAccountAdmin(admin.ModelAdmin):
+    list_display = [
+        'unique_id',
+        'country',
+        'language',
+        'follower_count',
+        'is_active',
+        'can_go_live',
+        'has_stream_key',
+        'agency_name',
+        'purchase_price',
+    ]
+    list_filter = [
+        'country',
+        'is_active',
+        'can_go_live',
+        'has_stream_key',
+        'language',
+    ]
+    search_fields = [
+        'unique_id',
+        'nickname',
+        'agency_name',
+        'notes',
+    ]
+    fieldsets = (
+        ('Identificación', {
+            'fields': ('unique_id', 'nickname', 'tiktok_user_id')
+        }),
+        ('País y Audiencia', {
+            'fields': ('country', 'region', 'language')
+        }),
+        ('Estado', {
+            'fields': ('is_active', 'can_go_live', 'follower_count')
+        }),
+        ('Agencia', {
+            'fields': ('agency_name', 'has_stream_key')
+        }),
+        ('Proxy', {
+            'fields': ('proxy_host', 'proxy_type')
+        }),
+        ('Inversión', {
+            'fields': ('purchase_price', 'purchase_date')
+        }),
+        ('Notas', {
+            'fields': ('notes',),
+            'classes': ('collapse',)
+        }),
+    )
 
 
 @admin.register(LiveSession)
@@ -9,6 +61,8 @@ class LiveSessionAdmin(admin.ModelAdmin):
     list_display = [
         'id',
         'name_or_id',
+        'account',
+        'game_type',
         'streamer_unique_id',
         'status_badge',
         'started_at',
@@ -18,6 +72,8 @@ class LiveSessionAdmin(admin.ModelAdmin):
     ]
     list_filter = [
         'status',
+        'game_type',
+        'account__country',
         'started_at',
         'streamer_unique_id'
     ]
@@ -25,6 +81,7 @@ class LiveSessionAdmin(admin.ModelAdmin):
         'name',
         'streamer_unique_id',
         'room_id',
+        'game_type',
         'notes'
     ]
     readonly_fields = [
@@ -63,7 +120,7 @@ class LiveSessionAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Información General', {
-            'fields': ('id', 'name', 'status')
+            'fields': ('id', 'name', 'status', 'account', 'game_type')
         }),
         ('Contexto del Live', {
             'fields': ('room_id', 'streamer_unique_id')

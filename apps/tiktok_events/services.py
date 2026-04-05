@@ -14,8 +14,9 @@ from TikTokLive.events import (
     FollowEvent,
     JoinEvent,
     SubscribeEvent,
+    RoomUserSeqEvent,
 )
-from .models import LiveEvent, LiveSession
+from .models import LiveEvent, LiveSession, TikTokAccount
 from apps.queue_system.dispatcher import EventDispatcher
 
 
@@ -103,16 +104,23 @@ class TikTokEventCapture:
         self.client.on(FollowEvent)(self.on_follow)
         self.client.on(JoinEvent)(self.on_join)
         self.client.on(SubscribeEvent)(self.on_subscribe)
+        self.client.on(RoomUserSeqEvent)(self.on_room_user_seq)
 
     async def on_connect(self, event: ConnectEvent):
         """Se ejecuta al conectarse al live"""
         self.room_id = event.room_id
 
+        # Buscar cuenta asociada si existe
+        account = await sync_to_async(
+            lambda: TikTokAccount.objects.filter(unique_id=self.streamer_username).first()
+        )()
+
         # Crear nueva sesión
         self.session = await sync_to_async(LiveSession.objects.create)(
             name=self.session_name,
             room_id=self.room_id,
-            streamer_unique_id=self.streamer_username
+            streamer_unique_id=self.streamer_username,
+            account=account,
         )
 
         # print(f"✅ Conectado a @{event.unique_id} - Room ID: {event.room_id}")
@@ -325,6 +333,24 @@ class TikTokEventCapture:
         )
         await sync_to_async(EventDispatcher.dispatch)(live_event)
         print(f"⭐ {event.user.unique_id} se suscribió")
+
+    async def on_room_user_seq(self, event: RoomUserSeqEvent):
+        """Captura snapshots de viewer count en tiempo real"""
+        event_data = {
+            'viewer_count': getattr(event, 'm_popularity', 0),
+            'total_viewers': getattr(event, 'm_total', 0),
+            'total_user': getattr(event, 'total_user', 0),
+            'anonymous': getattr(event, 'anonymous', 0),
+        }
+
+        await sync_to_async(LiveEvent.objects.create)(
+            session=self.session,
+            event_type='ViewerCountEvent',
+            timestamp=timezone.now(),
+            room_id=self.room_id,
+            streamer_unique_id=self.streamer_username,
+            event_data=event_data
+        )
 
     def start(self):
         """Inicia la captura de eventos"""

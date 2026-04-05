@@ -3,6 +3,52 @@ from django.utils import timezone
 from apps.base_models import BaseModel
 
 
+class TikTokAccount(BaseModel):
+    """
+    Cuenta de TikTok utilizada para hacer lives.
+    Almacena información que no se puede obtener automáticamente de la API.
+    """
+
+    # Identificación
+    unique_id = models.CharField(max_length=255, unique=True, help_text="@username de TikTok")
+    nickname = models.CharField(max_length=255, blank=True, help_text="Nombre visible de la cuenta")
+    tiktok_user_id = models.BigIntegerField(null=True, blank=True, help_text="ID numérico de TikTok")
+
+    # País y audiencia
+    country = models.CharField(max_length=2, help_text="Código de país ISO (US, UK, DE, SA, MX...)")
+    region = models.CharField(max_length=255, blank=True, help_text="Región específica (New York, London...)")
+    language = models.CharField(max_length=10, default='en', help_text="Idioma del contenido")
+
+    # Estado
+    is_active = models.BooleanField(default=True, help_text="Si la cuenta está activa para hacer lives")
+    can_go_live = models.BooleanField(default=True, help_text="Si tiene permiso para hacer live")
+    follower_count = models.IntegerField(default=0, help_text="Cantidad de seguidores")
+
+    # Agencia
+    agency_name = models.CharField(max_length=255, blank=True, help_text="Nombre de la agencia/creator network")
+    has_stream_key = models.BooleanField(default=False, help_text="Si tiene acceso a stream key via agencia")
+
+    # Proxy
+    proxy_host = models.CharField(max_length=255, blank=True, help_text="Host del proxy asignado")
+    proxy_type = models.CharField(max_length=50, blank=True, help_text="Tipo: residential, 4g, 5g, etc.")
+
+    # Inversión
+    purchase_price = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Costo de compra de la cuenta (USD)")
+    purchase_date = models.DateField(null=True, blank=True, help_text="Fecha de compra")
+
+    # Notas
+    notes = models.TextField(blank=True, help_text="Notas sobre esta cuenta")
+
+    class Meta:
+        db_table = 'tiktok_accounts'
+        ordering = ['country', 'unique_id']
+        verbose_name = 'TikTok Account'
+        verbose_name_plural = 'TikTok Accounts'
+
+    def __str__(self):
+        return f"@{self.unique_id} ({self.country})"
+
+
 class LiveSession(BaseModel):
     """
     Modelo para agrupar eventos de TikTok Live por sesión de captura
@@ -15,8 +61,19 @@ class LiveSession(BaseModel):
         ('aborted', 'Aborted'),
     ]
 
+    # Cuenta de TikTok
+    account = models.ForeignKey(
+        TikTokAccount,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sessions',
+        help_text="Cuenta de TikTok utilizada en esta sesión"
+    )
+
     # Identificación
     name = models.CharField(max_length=255, null=True, blank=True, help_text="Nombre opcional de la sesión")
+    game_type = models.CharField(max_length=100, blank=True, help_text="Juego/servicio activo (dinochrome, slot_machine, etc.)")
 
     # Control de tiempo
     started_at = models.DateTimeField(auto_now_add=True, db_index=True, help_text="Inicio de la sesión")
