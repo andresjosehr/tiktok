@@ -9,7 +9,8 @@ Documentacion de investigacion y planificacion para operar multiples lives inter
 | [Modelo de Negocio](modelo-de-negocio.md) | Meta financiera, proyecciones de ingresos, costos, ROI por cuenta |
 | [Infraestructura](infraestructura.md) | Hardware disponible, capacidad por PC, encoding, audio, OBS multi-instancia |
 | [Cuentas y Agencias](cuentas-y-agencias.md) | Agencias, stream keys, verificacion de identidad, retiro de diamonds, PayPal |
-| [Estrategia de Contenido](estrategia-de-contenido.md) | Catalogo de juegos interactivos, rotacion, TTS, optimizacion de lives |
+| [Juegos Interactivos](juegos-interactivos.md) | Principios de diseno, catalogo de 10 juegos rankeados por tier, categorias, arquitectura |
+| [Estrategia de Contenido](estrategia-de-contenido.md) | Rotacion de categorias, horarios, optimizacion de lives, analytics |
 | [Riesgos y Mitigacion](riesgos-y-mitigacion.md) | Shadow ban, deteccion IP, vinculacion de cuentas, compartimentalizacion |
 | [Plan de Ejecucion](plan-de-ejecucion.md) | Fases de escalamiento, validacion, timeline |
 
