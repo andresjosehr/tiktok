@@ -337,9 +337,8 @@ class TikTokEventCapture:
     async def on_room_user_seq(self, event: RoomUserSeqEvent):
         """Captura snapshots de viewer count en tiempo real"""
         event_data = {
-            'viewer_count': getattr(event, 'm_popularity', 0),
-            'total_viewers': getattr(event, 'm_total', 0),
-            'total_user': getattr(event, 'total_user', 0),
+            'viewer_count': getattr(event, 'm_total', 0),
+            'total_unique_viewers': getattr(event, 'total_user', 0),
             'anonymous': getattr(event, 'anonymous', 0),
         }
 
