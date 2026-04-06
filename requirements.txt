@@ -8,3 +8,4 @@ webdriver-manager==4.0.2
 requests==2.31.0
 yt-dlp>=2025.11.12
 obsws-python
+gdown

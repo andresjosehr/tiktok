@@ -1,296 +1,132 @@
 """
-Music Service - Servicio de reproduccion de musica desde YouTube
+Music Service - Servicio de reproduccion de musica desde archivos locales
 
 Este servicio maneja:
-- Asignacion de creditos por regalos
-- Validacion de usuarios con creditos
-- Busqueda y descarga de canciones
-- Reproduccion con interrupcion inmediata
-- Reproduccion automatica de playlist de fondo
+- Reproduccion secuencial de MP3s desde media/music/
+- Gift "gg" salta a la siguiente cancion
+- Reproduccion automatica continua como musica de fondo
 """
 
+import os
 import random
 import threading
 import time
-from django.db import transaction
+
+from django.conf import settings
 from apps.queue_system.base_service import BaseQueueService
-from apps.services.music.models import MusicCredit, MusicHistory
-from apps.services.music.youtube_client import YouTubeClient
 from apps.services.music.player import MusicPlayer
-from apps.app_config.models import Config
-from apps.tiktok_events.services import clean_text
 
 
 class MusicService(BaseQueueService):
     """
-    Servicio de musica con sistema de creditos
+    Servicio de musica con reproduccion secuencial de MP3s locales.
 
-    Caracteristicas:
-    - Usuarios ganan creditos enviando regalos especificos
-    - Comandos !<nombre> para buscar en YouTube (ej: !despacito)
-    - Reproduccion inmediata (interrumpe cancion actual)
-    - Rachas cuentan como multiples creditos
+    - Reproduce canciones en orden desde media/music/
+    - Gift "gg" salta a la siguiente cancion
+    - Cuando termina la lista, la baraja y empieza de nuevo
     """
 
-    # Configuracion hardcodeada
-    GIFT_NAME = 'gg'  # Nombre del regalo que da creditos
-    MAX_DURATION = 300  # Duracion maxima en segundos (5 minutos)
-    DEFAULT_PLAYLIST = 'https://www.youtube.com/playlist?list=PLxZHtuv5hUL94eMtcOOV0BiZu6a4cRo4J'
+    GIFT_NAME = 'gg'
+    MUSIC_DIR = os.path.join(settings.MEDIA_ROOT, 'music')
 
     def __init__(self):
-        self.youtube = YouTubeClient()
         self.player = MusicPlayer()
-        self.current_session = None
-        self.current_history_entry = None
-
-        # Control de reproduccion automatica
-        self.playlist_videos = []
+        self.tracks = []
+        self.current_index = 0
         self.background_thread = None
         self.background_running = False
-        self.user_request_active = False
+
+    def _load_tracks(self):
+        """Carga todos los MP3 del directorio de musica"""
+        self.tracks = []
+
+        if not os.path.exists(self.MUSIC_DIR):
+            os.makedirs(self.MUSIC_DIR, exist_ok=True)
+            print(f"[MUSIC] Directorio creado: {self.MUSIC_DIR}")
+            return
+
+        for root, dirs, files in os.walk(self.MUSIC_DIR):
+            for f in files:
+                if f.lower().endswith('.mp3'):
+                    self.tracks.append(os.path.join(root, f))
+
+        self.tracks.sort()
+        random.shuffle(self.tracks)
+        self.current_index = 0
+        print(f"[MUSIC] {len(self.tracks)} tracks cargados desde {self.MUSIC_DIR}")
 
     def on_start(self):
         """Se ejecuta al iniciar el worker"""
         print("[MUSIC] Servicio de musica iniciado")
+        self._load_tracks()
 
-        # Iniciar reproduccion automatica de fondo
-        self._start_background_music()
+        if self.tracks:
+            self._start_background_music()
+        else:
+            print("[MUSIC] No hay tracks en media/music/ - servicio en espera")
 
     def on_stop(self):
         """Se ejecuta al detener el worker"""
         print("[MUSIC] Deteniendo servicio de musica...")
-
-        # Detener thread de fondo
         self.background_running = False
         if self.background_thread:
             self.background_thread.join(timeout=5)
-
-        # Detener reproduccion actual
         if self.player.is_currently_playing():
             self.player.stop(interrupted=False)
 
-        # Marcar cancion actual como finalizada
-        if self.current_history_entry:
-            self.current_history_entry.mark_finished(interrupted=False)
-
     def process_event(self, live_event, queue_item):
-        """
-        Procesa eventos de TikTok
-
-        Args:
-            live_event: Evento de TikTok
-            queue_item: Item de la cola
-
-        Returns:
-            bool: True si se proceso exitosamente
-        """
+        """Procesa eventos de TikTok"""
         try:
-            # Guardar sesion actual
-            self.current_session = live_event.session
-
-            event_type = live_event.event_type
-
-            # Procesar segun tipo
-            if event_type == 'GiftEvent':
+            if live_event.event_type == 'GiftEvent':
                 return self._process_gift(live_event)
-
-            elif event_type == 'CommentEvent':
-                return self._process_comment(live_event)
-
-            return False
-
+            return True
         except Exception as e:
             print(f"[MUSIC] Error procesando evento: {str(e)}")
             return False
 
     def _process_gift(self, live_event):
-        """
-        Procesa regalos para asignar creditos
+        """Gift GG = saltar a la siguiente cancion"""
+        event_data = live_event.event_data
+        gift_name = event_data.get('gift', {}).get('name', '').lower()
 
-        Args:
-            live_event: Evento de regalo
-
-        Returns:
-            bool: True si se asignaron creditos
-        """
-        try:
-            event_data = live_event.event_data
-            username = live_event.user_unique_id
-            nickname = live_event.user_nickname or username
-
-            # Verificar si es el regalo correcto (GG)
-            gift_name = event_data.get('gift', {}).get('name', '').lower()
-
-            if self.GIFT_NAME.lower() not in gift_name:
-                return True  # No es el regalo configurado, pero no es error
-
-            # Determinar cantidad de creditos
-            # repeat_count contiene el total de regalos (1 si individual, N si racha)
-            credit_count = event_data.get('repeat_count', event_data.get('repeatCount', 1))
-            if credit_count > 1:
-                print(f"[MUSIC] 🔥 Racha de GG: @{nickname} x{credit_count}")
-
-            # Asignar creditos
-            with transaction.atomic():
-                credit, created = MusicCredit.objects.get_or_create(
-                    session=live_event.session,
-                    username=username
-                )
-
-                credit.add_gifts(credit_count)
-
-                emoji = "🆕" if created else "➕"
-                print(f"[MUSIC] {emoji} Créditos @{nickname}: +{credit_count} "
-                      f"(Disponibles: {credit.credits_available}/{credit.total_gifts})")
-
+        if self.GIFT_NAME.lower() not in gift_name:
             return True
 
-        except Exception as e:
-            print(f"[MUSIC] ❌ Error procesando regalo: {str(e)}")
-            return False
+        nickname = live_event.user_nickname or live_event.user_unique_id
+        print(f"[MUSIC] ⏭️ @{nickname} envio GG - saltando cancion")
 
-    def _process_comment(self, live_event):
-        """
-        Procesa comentarios para detectar comandos de musica
+        self._play_next()
+        return True
 
-        Args:
-            live_event: Evento de comentario
-
-        Returns:
-            bool: True si se proceso el comando
-        """
-        import time as time_module
-        start_time = time_module.time()
-
-        try:
-            comment = live_event.event_data.get('comment', '').strip()
-            username = live_event.user_unique_id
-            nickname = live_event.user_nickname or username
-
-            # Verificar si es comando de musica
-            if not comment.startswith('!'):
-                return True  # No es comando, pero no es error
-
-            # Extraer query
-            query = comment[1:].strip()  # Remover '!'
-
-            if not query:
-                print(f"[MUSIC] ⚠️  Comando vacío de @{nickname}")
-                return False
-
-            print(f"[MUSIC] 🎵 Comando recibido: '{query}' de @{nickname}")
-
-            # Verificar creditos
-            try:
-                credit = MusicCredit.objects.get(
-                    session=live_event.session,
-                    username=username
-                )
-            except MusicCredit.DoesNotExist:
-                print(f"[MUSIC] ❌ @{nickname} sin créditos (no ha enviado GG)")
-                return False
-
-            if credit.credits_available <= 0:
-                print(f"[MUSIC] ❌ @{nickname} sin créditos disponibles "
-                      f"({credit.credits_used}/{credit.total_gifts} usados)")
-                return False
-
-            # Buscar y descargar cancion
-            print(f"[MUSIC] 🔍 Buscando en YouTube: '{query}'...")
-            download_start = time_module.time()
-
-            video_info = self.youtube.search_and_download(query, self.MAX_DURATION)
-
-            if not video_info:
-                print(f"[MUSIC] ❌ No se pudo descargar: '{query}'")
-                return False
-
-            download_time = time_module.time() - download_start
-            duration_str = f"{video_info['duration']//60}:{video_info['duration']%60:02d}"
-            print(f"[MUSIC] ✅ Descargado '{video_info['title']}' ({duration_str}) en {download_time:.1f}s")
-
-            # Descontar credito
-            with transaction.atomic():
-                credit.use_credit()
-                print(f"[MUSIC] 💳 Crédito usado: @{nickname} "
-                      f"(Restantes: {credit.credits_available}/{credit.total_gifts})")
-
-            # Registrar en historial (limpiar title para evitar problemas con emojis)
-            history_entry = MusicHistory.objects.create(
-                session=live_event.session,
-                username=username,
-                query=clean_text(query),
-                youtube_url=video_info['youtube_url'],
-                youtube_id=video_info['youtube_id'],
-                title=clean_text(video_info['title']),
-                duration=video_info['duration'],
-                file_path=video_info['file_path']
-            )
-
-            # Marcar cancion actual como interrumpida si existe
-            if self.current_history_entry and self.player.is_currently_playing():
-                print(f"[MUSIC] ⏭️  Interrumpiendo canción actual para @{nickname}")
-                self.current_history_entry.mark_finished(interrupted=True)
-
-            # Indicar que hay un request de usuario activo
-            self.user_request_active = True
-
-            # Reproducir cancion
-            success = self.player.play(
-                video_info['file_path'],
-                on_finish_callback=lambda interrupted: self._on_song_finished(
-                    history_entry,
-                    interrupted
-                )
-            )
-
-            total_time = time_module.time() - start_time
-            if success:
-                self.current_history_entry = history_entry
-                print(f"[MUSIC] ▶️  Reproduciendo: '{video_info['title']}' ({duration_str}) | Total: {total_time:.1f}s")
-            else:
-                print(f"[MUSIC] ❌ Error reproduciendo: '{video_info['title']}'")
-                history_entry.mark_finished(interrupted=True)
-
-            return success
-
-        except Exception as e:
-            print(f"[MUSIC] ❌ Error procesando comentario: {str(e)}")
-            return False
-
-    def _on_song_finished(self, history_entry, interrupted):
-        """
-        Callback cuando termina una cancion
-
-        Args:
-            history_entry: Entrada del historial
-            interrupted: Si fue interrumpida o termino naturalmente
-        """
-        try:
-            history_entry.mark_finished(interrupted=interrupted)
-
-            if not interrupted:
-                print(f"[MUSIC] Cancion terminada: {history_entry.title}")
-                self.current_history_entry = None
-                self.user_request_active = False  # Permitir musica de fondo
-
-        except Exception as e:
-            print(f"[MUSIC] Error en callback: {str(e)}")
-
-    def _start_background_music(self):
-        """Inicia el thread de reproduccion automatica de fondo"""
-        print("[MUSIC] Iniciando reproduccion automatica de fondo...")
-
-        # Extraer videos de la playlist
-        self.playlist_videos = self.youtube.get_playlist_videos(self.DEFAULT_PLAYLIST)
-
-        if not self.playlist_videos:
-            print("[MUSIC] No se pudo cargar la playlist")
+    def _play_next(self):
+        """Reproduce la siguiente cancion de la lista"""
+        if not self.tracks:
             return
 
-        print(f"[MUSIC] Playlist cargada: {len(self.playlist_videos)} videos")
+        # Si llegamos al final, barajar y reiniciar
+        if self.current_index >= len(self.tracks):
+            random.shuffle(self.tracks)
+            self.current_index = 0
+            print("[MUSIC] Playlist reiniciada y barajada")
 
-        # Iniciar thread
+        track_path = self.tracks[self.current_index]
+        self.current_index += 1
+
+        filename = os.path.basename(track_path)
+        print(f"[MUSIC] ▶️ [{self.current_index}/{len(self.tracks)}] {filename}")
+
+        self.player.play(
+            track_path,
+            on_finish_callback=lambda interrupted: self._on_song_finished(interrupted)
+        )
+
+    def _on_song_finished(self, interrupted):
+        """Callback cuando termina una cancion"""
+        if not interrupted and self.background_running:
+            self._play_next()
+
+    def _start_background_music(self):
+        """Inicia reproduccion automatica de fondo"""
         self.background_running = True
         self.background_thread = threading.Thread(
             target=self._background_music_loop,
@@ -299,79 +135,10 @@ class MusicService(BaseQueueService):
         self.background_thread.start()
 
     def _background_music_loop(self):
-        """Loop del thread de reproduccion automatica"""
-        print("[MUSIC] Thread de fondo iniciado")
+        """Loop inicial que arranca la primera cancion"""
+        print("[MUSIC] Reproduccion automatica iniciada")
+        # Esperar un momento antes de empezar
+        time.sleep(2)
 
-        # Mezclar playlist
-        random.shuffle(self.playlist_videos)
-        current_index = 0
-
-        while self.background_running:
-            try:
-                # Si hay un request de usuario, esperar
-                if self.user_request_active or self.player.is_currently_playing():
-                    time.sleep(2)
-                    continue
-
-                # Obtener siguiente video
-                if current_index >= len(self.playlist_videos):
-                    # Reiniciar playlist
-                    random.shuffle(self.playlist_videos)
-                    current_index = 0
-
-                video = self.playlist_videos[current_index]
-                current_index += 1
-
-                print(f"[MUSIC] Reproduccion automatica: {video['title']}")
-
-                # Verificar si ya esta descargado
-                file_path = self.youtube.get_file_path(video['youtube_id'])
-
-                if not file_path:
-                    # Descargar video
-                    video_url = f"https://www.youtube.com/watch?v={video['youtube_id']}"
-                    video_info = self.youtube.download_video(video_url)
-
-                    if not video_info:
-                        print(f"[MUSIC] Error descargando video de fondo: {video['title']}")
-                        continue
-
-                    file_path = video_info['file_path']
-
-                # Reproducir
-                self.player.play(
-                    file_path,
-                    on_finish_callback=lambda interrupted: self._on_background_finished(interrupted)
-                )
-
-                # Esperar a que termine
-                while self.player.is_currently_playing() and self.background_running:
-                    time.sleep(1)
-
-            except Exception as e:
-                print(f"[MUSIC] Error en thread de fondo: {str(e)}")
-                time.sleep(5)
-
-        print("[MUSIC] Thread de fondo detenido")
-
-    def _on_background_finished(self, interrupted):
-        """Callback cuando termina una cancion de fondo"""
-        if not interrupted:
-            print("[MUSIC] Cancion de fondo terminada")
-
-    def _get_config(self, key, default=''):
-        """
-        Obtiene configuracion del sistema
-
-        Args:
-            key: Clave de configuracion
-            default: Valor por defecto
-
-        Returns:
-            str: Valor de configuracion
-        """
-        try:
-            config = Config.objects.get(meta_key=key)
-            return config.meta_value
-        except Config.DoesNotExist:
-            return default
+        if self.background_running and not self.player.is_currently_playing():
+            self._play_next()
