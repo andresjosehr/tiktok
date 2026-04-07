@@ -9,25 +9,28 @@ Aliases locales del proyecto - usar con: inv <comando>
   inv -l        Listar todos los comandos
 """
 
+import os
 from invoke import task
+
+os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 
 @task
 def server(c):
     """Iniciar servidor web Django (accesible en LAN)"""
-    c.run("python manage.py runserver 0.0.0.0:8000", pty=False)
+    c.run("python -X utf8 manage.py runserver 0.0.0.0:8000", pty=False)
 
 
 @task
 def sim(c):
     """Iniciar workers en modo simulador (sin TikTok, usar /simulator/)"""
-    c.run("python manage.py start_event_system --simulator --verbose", pty=False)
+    c.run("python -X utf8 manage.py start_event_system --simulator --verbose", pty=False)
 
 
 @task
 def live(c):
     """Iniciar sistema completo: workers + captura TikTok Live"""
-    c.run("python manage.py start_event_system --verbose", pty=False)
+    c.run("python -X utf8 manage.py start_event_system --verbose", pty=False)
 
 
 @task

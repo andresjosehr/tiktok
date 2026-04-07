@@ -142,16 +142,21 @@ class MusicPlayer:
             # Esperar a que termine el proceso
             return_code = process.wait()
 
-            # Solo ejecutar callback si termino normalmente (no interrumpido)
             with self.lock:
-                if return_code == 0 and self.is_playing:
-                    print(f"[PLAYER] Cancion terminada")
+                # Verificar que este proceso sigue siendo el actual
+                # (si se llamo stop() o play() con otra cancion, current_process cambio)
+                is_current = self.current_process == process
+
+                if is_current and self.is_playing:
+                    # Termino naturalmente (no fue interrumpido por stop())
+                    print(f"[PLAYER] Cancion terminada (return_code={return_code})")
                     self.is_playing = False
                     self.current_song = None
                     self.current_process = None
 
-                    if on_finish_callback:
-                        on_finish_callback(interrupted=False)
+            # Ejecutar callback FUERA del lock para evitar deadlocks
+            if is_current and on_finish_callback:
+                on_finish_callback(interrupted=False)
 
         except Exception as e:
             print(f"[PLAYER] Error en monitor: {str(e)}")

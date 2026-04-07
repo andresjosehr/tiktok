@@ -143,11 +143,11 @@ class DinoChromeService(BaseQueueService):
 
                 return True
 
-            # Rosa: LLM + TTS + reinicia el juego
+            # Rosa: LLM + TTS + reinicia el juego (se repite por cada regalo en la racha)
             if gift_name == 'rosa':
-                rosa_start = time.time()
                 username = live_event.user_nickname or live_event.user_unique_id or 'alguien'
-                print(f"[DINOCHROME] 🌺 Rosa de @{username} detectada! (Queue ID: {queue_item.id})")
+                rosa_count = event_data.get('repeat_count', 1)
+                print(f"[DINOCHROME] 🌺 Rosa de @{username} x{rosa_count} detectada! (Queue ID: {queue_item.id})")
 
                 # Sistema de prompts variados
                 system_prompts = [
@@ -161,64 +161,58 @@ class DinoChromeService(BaseQueueService):
                     f"Eres un streamer jugando DinoChrome en TikTok Live. {username} donó una rosa que reinició tu juego. Eres juguetón y bromista. Genera UNA SOLA FRASE corta (máximo 200 caracteres) bromeando sobre la situación. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserías, sin palabras ofensivas. Contenido 100% familiar y apropiado para TikTok.",
                 ]
 
-                selected_prompt = random.choice(system_prompts)
-                print(f"[DINOCHROME] 🎲 Prompt seleccionado: {selected_prompt[:100]}...")
+                for i in range(rosa_count):
+                    rosa_start = time.time()
+                    print(f"[DINOCHROME] 🌺 Rosa {i+1}/{rosa_count} procesando...")
 
-                # PASO 1: Generar texto con LLM
-                try:
-                    llm_start = time.time()
-                    print(f"[DINOCHROME] 🤖 Llamando al LLM...")
-                    ai_response = self.llm.chat(
-                        user_message=f"El usuario {username} acaba de donar una rosa en el stream.",
-                        system_message=selected_prompt,
-                        max_tokens=200,
-                        temperature=0.9
-                    )
-                    llm_time = time.time() - llm_start
+                    selected_prompt = random.choice(system_prompts)
 
-                    if ai_response:
-                        print(f"[DINOCHROME] ✅ LLM generó texto en {llm_time:.2f}s")
-                        print(f"[DINOCHROME] 💬 Respuesta LLM: '{ai_response}'")
-                    else:
-                        print(f"[DINOCHROME] ⚠️ LLM retornó None en {llm_time:.2f}s")
+                    # PASO 1: Generar texto con LLM
+                    try:
+                        llm_start = time.time()
+                        ai_response = self.llm.chat(
+                            user_message=f"El usuario {username} acaba de donar una rosa en el stream.",
+                            system_message=selected_prompt,
+                            max_tokens=200,
+                            temperature=0.9
+                        )
+                        llm_time = time.time() - llm_start
+
+                        if ai_response:
+                            print(f"[DINOCHROME] 💬 LLM ({llm_time:.1f}s): '{ai_response}'")
+                        else:
+                            ai_response = f"Ay {username}, me reiniciaste el juego con esa rosa!"
+                            print(f"[DINOCHROME] 🔄 Usando fallback")
+
+                    except Exception as e:
+                        print(f"[DINOCHROME] ❌ Error LLM: {e}")
                         ai_response = f"Ay {username}, me reiniciaste el juego con esa rosa!"
-                        print(f"[DINOCHROME] 🔄 Usando fallback: '{ai_response}'")
 
-                except Exception as e:
-                    print(f"[DINOCHROME] ❌ Error LLM: {e}")
-                    ai_response = f"Ay {username}, me reiniciaste el juego con esa rosa!"
-                    print(f"[DINOCHROME] 🔄 Usando fallback por error: '{ai_response}'")
+                    if not ai_response:
+                        ai_response = f"Gracias por la rosa {username}, pero me reiniciaste el juego!"
 
-                if not ai_response:
-                    ai_response = f"Gracias por la rosa {username}, pero me reiniciaste el juego!"
-                    print(f"[DINOCHROME] 🔄 Usando fallback final: '{ai_response}'")
+                    # PASO 2: Generar audio con ElevenLabs
+                    try:
+                        tts_start = time.time()
+                        audio_file = self.elevenlabs.text_to_speech_and_save(
+                            ai_response,
+                            voice_id="KHCvMklQZZo0O30ERnVn",
+                            play_audio=False,
+                            wait=False
+                        )
+                        tts_time = time.time() - tts_start
 
-                # PASO 2: Generar audio con ElevenLabs
-                try:
-                    tts_start = time.time()
-                    audio_file = self.elevenlabs.text_to_speech_and_save(
-                        ai_response,
-                        voice_id="KHCvMklQZZo0O30ERnVn",
-                        play_audio=False,
-                        wait=False
-                    )
-                    tts_time = time.time() - tts_start
-                    print(f"[DINOCHROME] 🔊 TTS generado en {tts_time:.2f}s")
+                        # PASO 3: Reiniciar juego + Reproducir audio
+                        if audio_file:
+                            self.chrome.restart()
+                            audio_start = time.time()
+                            self.elevenlabs.play_audio(audio_file, wait=True)
+                            audio_time = time.time() - audio_start
 
-                    # PASO 3: Reiniciar juego + Reproducir audio
-                    if audio_file:
-                        self.chrome.restart()
-                        audio_start = time.time()
-                        self.elevenlabs.play_audio(audio_file, wait=True)
-                        audio_time = time.time() - audio_start
-
-                        total_time = time.time() - rosa_start
-                        print(f"[DINOCHROME] ✅ Rosa completado | LLM:{llm_time:.1f}s + TTS:{tts_time:.1f}s + Audio:{audio_time:.1f}s = Total:{total_time:.1f}s")
-                    else:
-                        print(f"[DINOCHROME] ⚠️ No se generó archivo de audio (Queue ID: {queue_item.id})")
-                except Exception as e:
-                    print(f"[DINOCHROME] ❌ Error ElevenLabs: {e}")
-                    return False
+                            total_time = time.time() - rosa_start
+                            print(f"[DINOCHROME] ✅ Rosa {i+1}/{rosa_count} | LLM:{llm_time:.1f}s + TTS:{tts_time:.1f}s + Audio:{audio_time:.1f}s = Total:{total_time:.1f}s")
+                    except Exception as e:
+                        print(f"[DINOCHROME] ❌ Error ElevenLabs: {e}")
 
                 return True
 
@@ -255,6 +249,18 @@ class DinoChromeService(BaseQueueService):
 
                 return True
 
+
+            # GG: reproducir audio "cambiando cancion"
+            if gift_name == 'gg':
+                username = live_event.user_nickname or live_event.user_unique_id or 'alguien'
+                print(f"[DINOCHROME] 🎮 GG de @{username} - reproduciendo audio (Queue ID: {queue_item.id})")
+                try:
+                    gg_audio = os.path.join('elevenlabs', 'default_gg_music.mp3')
+                    self.elevenlabs.play_audio(gg_audio, wait=True)
+                    print(f"[DINOCHROME] ✅ Audio GG reproducido")
+                except Exception as e:
+                    print(f"[DINOCHROME] ❌ Error reproduciendo audio GG: {e}")
+                return True
 
             # Otro regalo: reproducir audio predefinido de agradecimiento
             username = live_event.user_nickname or live_event.user_unique_id or 'alguien'
