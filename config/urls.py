@@ -29,6 +29,7 @@ urlpatterns = [
     path('overlays/', include('apps.services.overlays.urls')),
     path('tugofwar/', include('apps.services.tugofwar.game.urls')),
     path('simulator/', include('apps.simulator.urls')),
+    path('analytics/', include('apps.tiktok_events.urls')),
 ]
 
 # Serve media and static files in development

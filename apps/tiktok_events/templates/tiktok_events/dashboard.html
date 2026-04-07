@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Analytics</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #0a0a0a; --surface: #141414; --surface2: #1c1c1c; --border: #252525;
+            --text: #e8e8e8; --text2: #888; --text3: #555;
+            --accent: #ff2d55; --green: #34c759; --blue: #0a84ff; --yellow: #ffd60a; --purple: #bf5af2;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+
+        .layout { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+
+        /* Sidebar */
+        .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; overflow-y: auto; }
+        .sidebar-title { font-size: 13px; font-weight: 700; color: var(--text2); padding: 0 16px 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .session-item { padding: 12px 16px; cursor: pointer; border-left: 3px solid transparent; transition: all 0.15s; }
+        .session-item:hover { background: var(--surface2); }
+        .session-item.active { background: var(--surface2); border-left-color: var(--accent); }
+        .session-item .si-top { display: flex; justify-content: space-between; align-items: center; }
+        .session-item .si-id { font-size: 14px; font-weight: 600; }
+        .session-item .si-revenue { font-size: 13px; color: var(--green); font-weight: 600; }
+        .session-item .si-meta { font-size: 11px; color: var(--text3); margin-top: 3px; }
+        .session-item .si-bar { margin-top: 6px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+        .session-item .si-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+
+        .sidebar-section { padding: 16px; border-bottom: 1px solid var(--border); }
+        .sidebar-section:last-child { border-bottom: none; }
+
+        .compare-btn { width: 100%; padding: 8px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: transparent; color: var(--text2); border-radius: 6px; cursor: pointer; margin-top: 8px; }
+        .compare-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .compare-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+        /* Main */
+        .main { padding: 24px; overflow-y: auto; }
+
+        /* KPI Row */
+        .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+        .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+        .kpi-value { font-size: 26px; font-weight: 700; line-height: 1.1; }
+        .kpi-label { font-size: 11px; color: var(--text2); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .kpi-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+        .kpi-accent { color: var(--accent); }
+        .kpi-green { color: var(--green); }
+        .kpi-blue { color: var(--blue); }
+        .kpi-yellow { color: var(--yellow); }
+
+        /* Charts */
+        .chart-row { display: grid; gap: 12px; margin-bottom: 16px; }
+        .chart-row-2 { grid-template-columns: 2fr 1fr; }
+        .chart-row-equal { grid-template-columns: 1fr 1fr; }
+        .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+        .chart-card h3 { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+        .chart-wrap { position: relative; height: 260px; }
+        .chart-wrap-sm { position: relative; height: 200px; }
+
+        /* Tables */
+        .data-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+        .data-table th { text-align: left; padding: 8px; color: var(--text3); font-weight: 600; border-bottom: 1px solid var(--border); }
+        .data-table td { padding: 8px; border-bottom: 1px solid var(--border); }
+        .data-table tr:hover td { background: var(--surface2); }
+
+        /* Empty state */
+        .empty { text-align: center; padding: 80px 20px; color: var(--text3); }
+        .empty-icon { font-size: 48px; margin-bottom: 12px; }
+
+        /* Comparison overlay */
+        .compare-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .compare-header h2 { font-size: 16px; }
+        .compare-close { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 20px; }
+
+        /* Global overview */
+        .overview-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+        .ov-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+        .ov-value { font-size: 22px; font-weight: 700; }
+        .ov-label { font-size: 11px; color: var(--text3); margin-top: 2px; text-transform: uppercase; }
+
+        @media (max-width: 1000px) {
+            .layout { grid-template-columns: 1fr; }
+            .sidebar { display: none; }
+            .kpi-row { grid-template-columns: repeat(3, 1fr); }
+        }
+    </style>
+</head>
+<body>
+<div class="layout">
+
+    <!-- Sidebar: Session List -->
+    <div class="sidebar">
+        <div class="sidebar-section">
+            <div class="sidebar-title">Resumen global</div>
+            <div style="font-size: 22px; font-weight: 700; color: var(--green);">${{ total_revenue }}</div>
+            <div style="font-size: 11px; color: var(--text3); margin-top: 2px;">{{ total_sessions }} sesiones | Avg ${{ avg_revenue_hr }}/hr</div>
+        </div>
+
+        <div class="sidebar-title" style="padding-top: 16px;">Sesiones</div>
+
+        {% for s in sessions %}
+        <div class="session-item {% if forloop.first %}active{% endif %}" data-id="{{ s.id }}" onclick="selectSession(this, {{ s.id }})">
+            <div class="si-top">
+                <span class="si-id">#{{ s.id }} &middot; {{ s.duration_display }}</span>
+                <span class="si-revenue">${{ s.revenue }}</span>
+            </div>
+            <div class="si-meta">@{{ s.streamer }} &middot; {{ s.game_type }} &middot; {{ s.started_at|date:"d M H:i" }}</div>
+            <div class="si-bar">
+                <div class="si-bar-fill" style="width: {% widthratio s.peak_viewers avg_peak 100 %}%"></div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <div class="sidebar-section" style="margin-top: 12px;">
+            <div class="sidebar-title">Comparar</div>
+            <div style="font-size: 11px; color: var(--text3); margin-bottom: 8px;">Click en sesiones + boton comparar</div>
+            <button class="compare-btn" id="compare-btn" onclick="toggleCompareMode()">Modo comparacion</button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main">
+
+        <!-- No sessions -->
+        {% if not sessions %}
+        <div class="empty">
+            <div class="empty-icon">📊</div>
+            <div>No hay sesiones completadas</div>
+        </div>
+        {% else %}
+
+        <!-- KPIs (update per session) -->
+        <div class="kpi-row" id="kpi-row">
+            <div class="kpi">
+                <div class="kpi-value kpi-green" id="kpi-revenue">-</div>
+                <div class="kpi-label">Revenue</div>
+                <div class="kpi-sub" id="kpi-revenue-hr">-</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-value kpi-accent" id="kpi-peak">-</div>
+                <div class="kpi-label">Peak viewers</div>
+                <div class="kpi-sub" id="kpi-avg">Avg: -</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-value kpi-blue" id="kpi-unique">-</div>
+                <div class="kpi-label">Viewers unicos</div>
+                <div class="kpi-sub" id="kpi-joins">- joins</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-value kpi-yellow" id="kpi-conversion">-</div>
+                <div class="kpi-label">Conversion (gifters/viewers)</div>
+                <div class="kpi-sub" id="kpi-gifters">- gifters</div>
+            </div>
+            <div class="kpi">
+                <div class="kpi-value" id="kpi-retention">-</div>
+                <div class="kpi-label">Avg watch time</div>
+                <div class="kpi-sub" id="kpi-engagement">- events/viewer</div>
+            </div>
+        </div>
+
+        <!-- Main chart: Viewers + Events overlay -->
+        <div class="chart-row chart-row-2">
+            <div class="chart-card">
+                <h3>Viewers a lo largo del live</h3>
+                <div class="chart-wrap"><canvas id="chart-main"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <h3>Actividad por minuto</h3>
+                <div class="chart-wrap"><canvas id="chart-activity"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Second row: Gifts + Gifters -->
+        <div class="chart-row chart-row-equal">
+            <div class="chart-card">
+                <h3>Gifts recibidos</h3>
+                <div class="chart-wrap-sm"><canvas id="chart-gifts"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <h3>Top gifters</h3>
+                <table class="data-table" id="table-gifters">
+                    <thead><tr><th>Usuario</th><th>Gifts</th><th>Diamonds</th><th>USD</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Comparison view (hidden by default) -->
+        <div id="compare-view" style="display:none; margin-top: 24px;">
+            <div class="compare-header">
+                <h2>Comparacion de sesiones</h2>
+                <button class="compare-close" onclick="closeCompare()">&times;</button>
+            </div>
+            <div class="chart-card">
+                <div class="chart-wrap"><canvas id="chart-compare"></canvas></div>
+            </div>
+        </div>
+
+        {% endif %}
+    </div>
+</div>
+
+<script>
+const sessions = JSON.parse('{{ sessions_json|escapejs }}');
+let compareMode = false;
+let selectedForCompare = new Set();
+let charts = {};
+
+const C = {
+    accent: '#ff2d55', green: '#34c759', blue: '#0a84ff', yellow: '#ffd60a',
+    purple: '#bf5af2', orange: '#ff9f0a', text3: '#555', border: '#252525'
+};
+
+const baseOpts = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+        x: { ticks: { color: '#555', maxTicksLimit: 15, font: { size: 10 } }, grid: { color: '#1c1c1c' } },
+        y: { ticks: { color: '#555', font: { size: 10 } }, grid: { color: '#1c1c1c' }, beginAtZero: true }
+    }
+};
+
+function destroyChart(key) { if (charts[key]) { charts[key].destroy(); delete charts[key]; } }
+
+function selectSession(el, id) {
+    if (compareMode) {
+        el.classList.toggle('active');
+        if (selectedForCompare.has(id)) selectedForCompare.delete(id);
+        else selectedForCompare.add(id);
+        return;
+    }
+    document.querySelectorAll('.session-item').forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+    loadSession(id);
+}
+
+function updateKPIs(s) {
+    document.getElementById('kpi-revenue').textContent = `$${s.revenue}`;
+    document.getElementById('kpi-revenue-hr').textContent = `$${s.revenue_per_hour}/hr | ${s.duration_display}`;
+    document.getElementById('kpi-peak').textContent = s.peak_viewers;
+    document.getElementById('kpi-avg').textContent = `Avg: ${s.avg_viewers}`;
+    document.getElementById('kpi-unique').textContent = s.total_unique;
+    document.getElementById('kpi-joins').textContent = `${s.total_joins} joins`;
+    document.getElementById('kpi-conversion').textContent = `${s.conversion_rate}%`;
+    document.getElementById('kpi-gifters').textContent = `${s.gifters_count} gifters de ${s.total_unique} viewers`;
+    document.getElementById('kpi-retention').textContent = `${s.avg_watch_min}m`;
+    document.getElementById('kpi-engagement').textContent = `${s.engagement_per_viewer} events/viewer`;
+}
+
+async function loadSession(id) {
+    const s = sessions.find(x => x.id === id);
+    if (s) updateKPIs(s);
+
+    const res = await fetch(`/analytics/api/session/${id}/`);
+    const data = await res.json();
+
+    // Main chart: Viewers concurrent + unique (dual axis)
+    destroyChart('main');
+    charts.main = new Chart(document.getElementById('chart-main'), {
+        type: 'line',
+        data: {
+            labels: data.viewer_timeline.map(v => v.time),
+            datasets: [{
+                label: 'Concurrentes',
+                data: data.viewer_timeline.map(v => v.viewers),
+                borderColor: C.accent, backgroundColor: C.accent + '15',
+                fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2,
+                yAxisID: 'y'
+            }, {
+                label: 'Unicos (acum.)',
+                data: data.viewer_timeline.map(v => v.unique),
+                borderColor: C.blue, borderDash: [4, 4],
+                fill: false, tension: 0.3, pointRadius: 0, borderWidth: 1.5,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            ...baseOpts,
+            plugins: { legend: { display: true, labels: { color: '#888', font: { size: 11 }, boxWidth: 12 } } },
+            scales: {
+                ...baseOpts.scales,
+                y: { ...baseOpts.scales.y, position: 'left', title: { display: true, text: 'Concurrentes', color: '#555', font: { size: 10 } } },
+                y1: { position: 'right', ticks: { color: '#555', font: { size: 10 } }, grid: { drawOnChartArea: false }, beginAtZero: true, title: { display: true, text: 'Unicos', color: '#555', font: { size: 10 } } }
+            }
+        }
+    });
+
+    // Activity by minute (stacked bar)
+    destroyChart('activity');
+    charts.activity = new Chart(document.getElementById('chart-activity'), {
+        type: 'bar',
+        data: {
+            labels: data.events_by_min.map(e => `${e.min}`),
+            datasets: [
+                { label: 'Joins', data: data.events_by_min.map(e => e.joins), backgroundColor: C.green + '99' },
+                { label: 'Gifts', data: data.events_by_min.map(e => e.gifts), backgroundColor: C.yellow + '99' },
+                { label: 'Comments', data: data.events_by_min.map(e => e.comments), backgroundColor: C.blue + '99' },
+                { label: 'Likes', data: data.events_by_min.map(e => e.likes), backgroundColor: C.purple + '99' },
+            ]
+        },
+        options: {
+            ...baseOpts,
+            plugins: { legend: { display: true, labels: { color: '#888', font: { size: 10 }, boxWidth: 8 } } },
+            scales: {
+                x: { stacked: true, ticks: { color: '#555', font: { size: 10 }, maxTicksLimit: 20 }, grid: { display: false }, title: { display: true, text: 'Minuto', color: '#555', font: { size: 10 } } },
+                y: { stacked: true, ticks: { color: '#555', font: { size: 10 } }, grid: { color: '#1c1c1c' }, beginAtZero: true }
+            }
+        }
+    });
+
+    // Gifts donut
+    destroyChart('gifts');
+    const giftNames = Object.keys(data.gifts);
+    if (giftNames.length > 0) {
+        charts.gifts = new Chart(document.getElementById('chart-gifts'), {
+            type: 'doughnut',
+            data: {
+                labels: giftNames,
+                datasets: [{ data: giftNames.map(n => data.gifts[n].count), backgroundColor: [C.yellow, C.accent, C.blue, C.green, C.purple, C.orange] }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#888', font: { size: 11 } } } } }
+        });
+    }
+
+    // Top gifters table
+    const tbody = document.querySelector('#table-gifters tbody');
+    tbody.innerHTML = '';
+    const gifters = Object.entries(data.top_gifters);
+    if (gifters.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="color:#555;text-align:center;">Sin gifts</td></tr>';
+    } else {
+        gifters.forEach(([user, stats]) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>@${user}</td><td>${stats.count}</td><td>${stats.diamonds}</td><td style="color:${C.green}">$${(stats.diamonds * 0.005).toFixed(2)}</td>`;
+            tbody.appendChild(tr);
+        });
+    }
+}
+
+// Compare mode
+function toggleCompareMode() {
+    compareMode = !compareMode;
+    const btn = document.getElementById('compare-btn');
+    btn.classList.toggle('active');
+    btn.textContent = compareMode ? 'Comparar seleccionadas' : 'Modo comparacion';
+
+    if (!compareMode && selectedForCompare.size >= 2) {
+        runComparison();
+    } else if (!compareMode) {
+        selectedForCompare.clear();
+        document.querySelectorAll('.session-item').forEach(s => s.classList.remove('active'));
+    }
+}
+
+async function runComparison() {
+    const ids = [...selectedForCompare];
+    const res = await fetch(`/analytics/api/compare/?ids=${ids.join(',')}`);
+    const data = await res.json();
+
+    document.getElementById('compare-view').style.display = 'block';
+
+    destroyChart('compare');
+    const metrics = ['peak_viewers', 'avg_viewers', 'total_unique', 'total_gifts', 'conversion_rate', 'revenue_per_hour'];
+    const labels = ['Peak Viewers', 'Avg Viewers', 'Unicos', 'Gifts', 'Conversion %', '$/hr'];
+    const colors = [C.accent, C.blue, C.green, C.yellow, C.purple, C.orange];
+
+    charts.compare = new Chart(document.getElementById('chart-compare'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: data.sessions.map((s, i) => ({
+                label: `#${s.id} (${s.duration_display})`,
+                data: metrics.map(m => s[m]),
+                backgroundColor: colors[i % colors.length] + '80',
+                borderColor: colors[i % colors.length],
+                borderWidth: 1,
+            }))
+        },
+        options: baseOpts
+    });
+}
+
+function closeCompare() {
+    document.getElementById('compare-view').style.display = 'none';
+    selectedForCompare.clear();
+}
+
+// Load first session on page load
+{% if sessions %}
+loadSession({{ sessions.0.id }});
+{% endif %}
+</script>
+</body>
+</html>
