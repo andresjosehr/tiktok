@@ -6,7 +6,7 @@ import { updateCloud, setupCloud } from "./cloud.js"
 const WORLD_WIDTH = 100
 const WORLD_HEIGHT = 30
 const SPEED_SCALE_INCREASE = 0.00002
-const AUTO_JUMP_DISTANCE = 150
+const AUTO_JUMP_DISTANCE_RATIO = 0.2
 
 const worldElem = document.querySelector("[data-world]")
 const scoreElem = document.querySelector("[data-score]")
@@ -156,10 +156,11 @@ window.restartGame = restartGame
 function autoJump() {
   const cactusRects = getCactusRects()
   const dinoRect = getDinoRect()
+  const jumpDistance = worldElem.clientWidth * AUTO_JUMP_DISTANCE_RATIO
 
   cactusRects.forEach(cactusRect => {
     const distance = cactusRect.left - dinoRect.right
-    if (distance > 0 && distance < AUTO_JUMP_DISTANCE) {
+    if (distance > 0 && distance < jumpDistance) {
       triggerJump()
     }
   })

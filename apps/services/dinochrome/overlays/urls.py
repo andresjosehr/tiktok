@@ -1,15 +1,12 @@
 from django.urls import path
 from . import views
 
-app_name = 'dinochrome_overlays'
+app_name = 'dinochrome'
 
 urlpatterns = [
-    # Rosa overlay
-    path('rose/', views.rose_overlay_view, name='rose'),
+    # Pagina unificada (juego + overlays + audio)
+    path('', views.dinochrome_view, name='game'),
 
-    # GIF overlays (slots 1-5)
-    path('gif/<int:slot>/', views.gif_overlay_view, name='gif_slot'),
-
-    # SSE endpoints
-    path('events/<str:overlay_type>/', views.overlay_events, name='events'),
+    # SSE endpoint unico
+    path('events/', views.dinochrome_events, name='events'),
 ]
