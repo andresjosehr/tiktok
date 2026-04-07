@@ -57,7 +57,7 @@ INSTALLED_APPS = [
     'apps.services.dinochrome.dino-game.apps.DinoGameConfig',
     'apps.services.dinochrome.overlays',
     'apps.services.music',
-    'apps.services.overlays',
+
     'apps.services.tugofwar.game.apps.TugOfWarGameConfig',
     'apps.integrations.elevenlabs',
     'apps.integrations.llm',
@@ -202,12 +202,7 @@ LOGGING = {
             'filename': BASE_DIR / 'logs' / 'dinochrome.log',
             'formatter': 'verbose',
         },
-        'file_overlays': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'logs' / 'overlays.log',
-            'formatter': 'verbose',
-        },
+
         'file_tiktok': {
             'level': 'INFO',
             'class': 'logging.FileHandler',
@@ -229,11 +224,6 @@ LOGGING = {
         },
         'dinochrome': {
             'handlers': ['console', 'file_dinochrome'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-        'overlays': {
-            'handlers': ['console', 'file_overlays'],
             'level': 'INFO',
             'propagate': False,
         },
