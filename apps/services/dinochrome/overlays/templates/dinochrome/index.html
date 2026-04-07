@@ -1,0 +1,618 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DinoChrome Live</title>
+  <link rel="stylesheet" href="{% static 'dinogame/css/styles.css' %}">
+  <script>
+    window.STATIC_URL = "{% static 'dinogame/' %}";
+  </script>
+  <style>
+    /* ===== 9:16 TIKTOK FRAME ===== */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #000;
+      color: white;
+      font-family: 'Arial', sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+    }
+
+    .tiktok-frame {
+      position: relative;
+      width: min(100vw, calc(100vh * 9 / 16));
+      height: min(100vh, calc(100vw * 16 / 9));
+      margin: auto;
+      overflow: hidden;
+      background: #f7f7f7;
+    }
+
+    /* Safe zone: top ~8% for TikTok header, bottom ~23% for comments/gifts UI */
+    .game-safe-zone {
+      position: absolute;
+      top: 8%;
+      bottom: 23%;
+      left: 0;
+      right: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+
+    /* ===== DINO GAME OVERRIDES ===== */
+    /* Override dinogame/styles.css body flex to not interfere with tiktok frame */
+    .game-safe-zone .world {
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ===== GIFT INDICATORS ===== */
+    .gift-indicators {
+      display: flex;
+      gap: 6px;
+      z-index: 60;
+      pointer-events: none;
+      margin-top: 8px;
+    }
+
+    .gift-indicator {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(0, 0, 0, 0.7);
+      border-radius: 20px;
+      padding: 3px 10px 3px 4px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .gift-indicator img {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+    }
+
+    .gift-indicator .gi-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .gift-indicator .gi-sep {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.35);
+      margin: 0 2px;
+    }
+
+    .gift-indicator .gi-action {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.55);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    /* Rosa sin imagen: padding izquierdo extra */
+    .gift-indicator.no-img {
+      padding-left: 10px;
+    }
+
+    .gift-indicator.no-img .gi-name {
+      color: #ff69b4;
+    }
+
+    /* ===== GIF SLOTS ===== */
+    .gif-slots-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 50;
+    }
+
+    .gif-slot {
+      position: absolute;
+      opacity: 0;
+      transition: opacity 0.3s ease-in-out;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .gif-slot.visible {
+      opacity: 1;
+    }
+
+    /* Slots en los bordes del frame 9:16 */
+    .gif-slot[data-slot="1"]  { top: 1%;  left: 1%; }
+    .gif-slot[data-slot="2"]  { top: 1%;  right: 1%; }
+    .gif-slot[data-slot="3"]  { top: 18%; left: 1%; }
+    .gif-slot[data-slot="4"]  { top: 18%; right: 1%; }
+    .gif-slot[data-slot="5"]  { top: 35%; left: 1%; }
+    .gif-slot[data-slot="6"]  { top: 35%; right: 1%; }
+    .gif-slot[data-slot="7"]  { top: 52%; left: 1%; }
+    .gif-slot[data-slot="8"]  { top: 52%; right: 1%; }
+    .gif-slot[data-slot="9"]  { bottom: 25%; left: 1%; }
+    .gif-slot[data-slot="10"] { bottom: 25%; right: 1%; }
+
+    .gif-slot img {
+      max-width: 18vw;
+      max-height: 18vw;
+      display: block;
+      margin: 0 auto;
+      filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.5));
+      border-radius: 8px;
+    }
+
+    .gif-slot .gif-username {
+      color: white;
+      font-size: 10px;
+      font-weight: bold;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.9);
+      margin-top: 2px;
+      padding: 1px 6px;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 6px;
+      display: inline-block;
+    }
+
+    .gif-slot .gif-timer {
+      width: 100%;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.3);
+      margin-top: 2px;
+      border-radius: 1px;
+      overflow: hidden;
+    }
+
+    .gif-slot .gif-timer-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #ff6b6b, #ff9999);
+      width: 100%;
+      transition: width 60s linear;
+    }
+
+    .gif-slot .gif-timer-bar.active {
+      width: 0%;
+    }
+
+    /* ===== ROSE OVERLAY (inside .world) ===== */
+    .rose-overlay {
+      position: absolute;
+      top: 10%;
+      left: 50%;
+      transform: translate(-50%, 0) scale(0);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .rose-overlay.active {
+      animation: roseAnimation 3s ease-in-out forwards;
+    }
+
+    .rose-overlay .rose-image {
+      display: block;
+      width: 200px;
+      height: auto;
+      filter: drop-shadow(0 0 12px rgba(255, 105, 180, 0.8));
+    }
+
+    .rose-overlay .rose-text {
+      color: #fff;
+      font-size: 16px;
+      font-weight: bold;
+      text-shadow:
+        0 0 8px rgba(255, 105, 180, 0.8),
+        0 0 16px rgba(255, 105, 180, 0.6),
+        1px 1px 3px rgba(0, 0, 0, 0.8);
+      margin-top: 0;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    @keyframes roseAnimation {
+      0% {
+        transform: translate(-50%, 0) scale(0) rotate(-180deg);
+        opacity: 0;
+      }
+      15% {
+        transform: translate(-50%, 0) scale(1.15) rotate(0deg);
+        opacity: 1;
+      }
+      85% {
+        transform: translate(-50%, 0) scale(1) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(-50%, 0) scale(0.8) rotate(10deg);
+        opacity: 0;
+      }
+    }
+
+    /* ===== START SCREEN (audio unlock) ===== */
+    .start-screen {
+      position: absolute;
+      inset: 0;
+      z-index: 999;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: white;
+      font-family: 'Arial', sans-serif;
+      user-select: none;
+    }
+
+    .start-screen .start-icon {
+      font-size: 80px;
+      margin-bottom: 20px;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .start-screen .start-title {
+      font-size: clamp(24px, 6vw, 40px);
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    .start-screen .start-hint {
+      font-size: clamp(12px, 3vw, 16px);
+      opacity: 0.6;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    /* ===== SSE STATUS ===== */
+    .sse-status {
+      position: absolute;
+      bottom: 24%;
+      right: 2%;
+      font-size: 9px;
+      color: rgba(0,0,0,0.3);
+      z-index: 200;
+    }
+
+    .sse-status.connected { color: rgba(0,180,0,0.5); }
+    .sse-status.error { color: rgba(255,0,0,0.5); }
+  </style>
+</head>
+<body>
+  <!-- Audio elements -->
+  <audio id="jump-sound" preload="auto">
+    <source src="{% static 'dinochrome/effects/jump.mp3' %}" type="audio/mpeg">
+  </audio>
+  <audio id="point-sound" preload="auto">
+    <source src="{% static 'dinochrome/effects/point.mp3' %}" type="audio/mpeg">
+  </audio>
+  <audio id="tts-audio" preload="none"></audio>
+
+  <!-- 9:16 TikTok Frame -->
+  <div class="tiktok-frame" id="tiktokFrame">
+
+    <!-- Start screen - required for audio unlock -->
+    <div class="start-screen" id="startScreen">
+      <div class="start-icon">🦖</div>
+      <div class="start-title">DinoChrome Live</div>
+      <div class="start-hint">Toca para iniciar</div>
+    </div>
+
+    <!-- Safe zone for TikTok Live -->
+    <div class="game-safe-zone">
+      <!-- Dino Game -->
+      <div class="world" data-world>
+        <div class="score-container">
+          <div class="high-score">RECORD <span data-high-score>0</span></div>
+          <div class="score">SCORE <span data-score>0</span></div>
+        </div>
+        <img src="{% static 'dinogame/imgs/cloud.png' %}" class="cloud" data-cloud>
+        <img src="{% static 'dinogame/imgs/cloud.png' %}" class="cloud" data-cloud>
+        <img src="{% static 'dinogame/imgs/cloud.png' %}" class="cloud" data-cloud>
+        <img src="{% static 'dinogame/imgs/cloud.png' %}" class="cloud" data-cloud>
+        <img src="{% static 'dinogame/imgs/cloud.png' %}" class="cloud" data-cloud>
+        <img src="{% static 'dinogame/imgs/ground.png' %}" class="ground" data-ground>
+        <img src="{% static 'dinogame/imgs/ground.png' %}" class="ground" data-ground>
+        <img src="{% static 'dinogame/imgs/dino-stationary.png' %}" class="dino" data-dino>
+
+        <!-- Rose Overlay (inside world) -->
+        <div id="roseOverlay" class="rose-overlay">
+          <img class="rose-image" src="{% static 'dinochrome_overlays/no-rose.png' %}" alt="No Rose">
+          <div class="rose-text" id="roseText">Gracias!</div>
+        </div>
+      </div>
+
+      <!-- Gift Indicators (inside safe zone, right below the game) -->
+      <div class="gift-indicators">
+        <div class="gift-indicator">
+          <img src="{% static 'dinochrome_overlays/gifts/gg.webp' %}" alt="GG">
+          <span class="gi-action">Cambias musica</span>
+        </div>
+        <div class="gift-indicator no-img">
+          <span class="gi-name">Rosa</span>
+          <span class="gi-sep">=</span>
+          <span class="gi-action">Reinicio</span>
+        </div>
+        <div class="gift-indicator">
+          <img src="{% static 'dinochrome_overlays/gifts/ice_cream.webp' %}" alt="Ice Cream">
+          <span class="gi-action">Bailarin</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- GIF Slots (created dynamically via JS) -->
+    <div class="gif-slots-container"></div>
+
+
+    <!-- SSE Status -->
+    <div id="sseStatus" class="sse-status">SSE: conectando...</div>
+  </div>
+
+  <!-- Dino game JS (modular) -->
+  <script src="{% static 'dinogame/js/script.js' %}" type="module"></script>
+
+  <!-- Override dino world sizing to fit safe zone instead of window -->
+  <script>
+    (function() {
+      const WORLD_WIDTH = 100;
+      const WORLD_HEIGHT = 30;
+
+      function resizeWorld() {
+        const safeZone = document.querySelector('.game-safe-zone');
+        const world = document.querySelector('[data-world]');
+        if (!safeZone || !world) return;
+
+        const zoneW = safeZone.clientWidth;
+        const zoneH = safeZone.clientHeight;
+
+        let scale;
+        if (zoneW / zoneH < WORLD_WIDTH / WORLD_HEIGHT) {
+          scale = zoneW / WORLD_WIDTH;
+        } else {
+          scale = zoneH / WORLD_HEIGHT;
+        }
+
+        world.style.width = (WORLD_WIDTH * scale) + 'px';
+        world.style.height = (WORLD_HEIGHT * scale) + 'px';
+      }
+
+      // Run after dino game script has initialized
+      setTimeout(resizeWorld, 100);
+      window.addEventListener('resize', resizeWorld);
+    })();
+  </script>
+
+  <!-- DinoChrome SSE + Overlays + Audio -->
+  <script>
+    const AVAILABLE_GIFS = JSON.parse('{{ available_gifs_json|safe }}');
+    const GIF_DURATION = 60000;
+
+    // ===== AUDIO UNLOCK =====
+    let audioUnlocked = false;
+    const startScreen = document.getElementById('startScreen');
+
+    function unlockAudio() {
+      startScreen.remove();
+      audioUnlocked = true;
+
+      // Play a silent buffer to unlock audio context
+      const tts = document.getElementById('tts-audio');
+      tts.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+      tts.play().then(() => { tts.pause(); tts.src = ''; }).catch(() => {});
+
+      // Also unlock game sounds
+      const jumpSound = document.getElementById('jump-sound');
+      const pointSound = document.getElementById('point-sound');
+      if (jumpSound) { jumpSound.play().then(() => jumpSound.pause()).catch(() => {}); }
+      if (pointSound) { pointSound.play().then(() => pointSound.pause()).catch(() => {}); }
+
+      console.log('[DINOCHROME] Audio desbloqueado');
+    }
+
+    startScreen.addEventListener('click', unlockAudio);
+    document.addEventListener('keydown', function initKey(e) {
+      if (startScreen.parentNode) {
+        unlockAudio();
+        document.removeEventListener('keydown', initKey);
+      }
+    });
+
+    // ===== GIF SLOTS =====
+    const gifSlotsContainer = document.querySelector('.gif-slots-container');
+    const gifSlots = {};
+
+    for (let i = 1; i <= 10; i++) {
+      const slotEl = document.createElement('div');
+      slotEl.className = 'gif-slot';
+      slotEl.setAttribute('data-slot', i);
+      slotEl.innerHTML = `
+        <img class="gif-img" src="" alt="">
+        <div class="gif-username"></div>
+        <div class="gif-timer"><div class="gif-timer-bar"></div></div>
+      `;
+      gifSlotsContainer.appendChild(slotEl);
+      gifSlots[i] = {
+        el: slotEl,
+        img: slotEl.querySelector('.gif-img'),
+        username: slotEl.querySelector('.gif-username'),
+        timerBar: slotEl.querySelector('.gif-timer-bar'),
+        timeout: null,
+      };
+    }
+
+    function showGif(data) {
+      const slot = data.slot || 1;
+      const s = gifSlots[slot];
+      if (!s) return;
+
+      if (s.timeout) clearTimeout(s.timeout);
+
+      s.username.textContent = data.username || 'Anonimo';
+      s.img.src = "/static/dinochrome_overlays/gifs/" + (data.gif_filename || 'cat-dancing.gif');
+      s.el.classList.add('visible');
+
+      s.timerBar.classList.remove('active');
+      void s.timerBar.offsetWidth;
+      s.timerBar.classList.add('active');
+
+      s.timeout = setTimeout(() => {
+        s.el.classList.remove('visible');
+      }, GIF_DURATION);
+    }
+
+    // ===== ROSE OVERLAY =====
+    const roseOverlay = document.getElementById('roseOverlay');
+    const roseText = document.getElementById('roseText');
+
+    function showRose(data) {
+      const username = data.username || 'Anonimo';
+
+      roseText.textContent = `Gracias ${username}`;
+
+      roseOverlay.classList.remove('active');
+      void roseOverlay.offsetWidth;
+      roseOverlay.classList.add('active');
+
+      setTimeout(() => {
+        roseOverlay.classList.remove('active');
+      }, 3000);
+    }
+
+    // ===== TTS AUDIO =====
+    const ttsAudio = document.getElementById('tts-audio');
+    const audioQueue = [];
+    let isPlayingAudio = false;
+
+    function playTtsAudio(data) {
+      const url = data.audio_url;
+      if (!url) return;
+
+      audioQueue.push(url);
+      processAudioQueue();
+    }
+
+    function processAudioQueue() {
+      if (isPlayingAudio || audioQueue.length === 0) return;
+      if (!audioUnlocked) {
+        console.warn('[DINOCHROME] Audio bloqueado - esperando interaccion del usuario');
+        return;
+      }
+
+      isPlayingAudio = true;
+      const url = audioQueue.shift();
+
+      ttsAudio.src = url;
+      ttsAudio.play().then(() => {
+        console.log('[DINOCHROME] Reproduciendo TTS:', url);
+      }).catch(err => {
+        console.error('[DINOCHROME] Error reproduciendo audio:', err);
+        isPlayingAudio = false;
+        processAudioQueue();
+      });
+    }
+
+    ttsAudio.addEventListener('ended', () => {
+      isPlayingAudio = false;
+      processAudioQueue();
+    });
+
+    ttsAudio.addEventListener('error', () => {
+      isPlayingAudio = false;
+      processAudioQueue();
+    });
+
+    // ===== GAME RESTART =====
+    function handleGameRestart() {
+      if (typeof window.restartGame === 'function') {
+        window.restartGame();
+        console.log('[DINOCHROME] Juego reiniciado via SSE');
+      }
+    }
+
+    // ===== SSE CONNECTION =====
+    const sseStatus = document.getElementById('sseStatus');
+
+    function connectSSE() {
+      sseStatus.textContent = 'SSE: conectando...';
+      sseStatus.className = 'sse-status';
+
+      const eventSource = new EventSource('/dinochrome/events/');
+
+      eventSource.onopen = () => {
+        sseStatus.textContent = 'SSE: conectado';
+        sseStatus.className = 'sse-status connected';
+        console.log('[DINOCHROME] SSE conectado');
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('[DINOCHROME] Evento:', data);
+
+          switch (data.type) {
+            case 'rose_gift':
+              showRose(data.data);
+              break;
+            case 'dancing_gif':
+              showGif(data.data);
+              break;
+            case 'game_restart':
+              handleGameRestart();
+              break;
+            case 'tts_audio':
+              playTtsAudio(data.data);
+              break;
+            default:
+              console.log('[DINOCHROME] Evento desconocido:', data.type);
+          }
+        } catch (error) {
+          console.error('[DINOCHROME] Error parseando evento:', error);
+        }
+      };
+
+      eventSource.onerror = () => {
+        sseStatus.textContent = 'SSE: reconectando...';
+        sseStatus.className = 'sse-status error';
+        eventSource.close();
+        setTimeout(connectSSE, 3000);
+      };
+    }
+
+    // ===== KEYBOARD TESTING =====
+    document.addEventListener('keydown', (e) => {
+      switch (e.key) {
+        case 'r':
+          showRose({ username: 'TestUser', count: 1 });
+          break;
+        case 'g':
+          const slot = Math.floor(Math.random() * 10) + 1;
+          const gif = AVAILABLE_GIFS[Math.floor(Math.random() * AVAILABLE_GIFS.length)];
+          showGif({ username: 'TestUser', gif_filename: gif, slot: slot });
+          break;
+        case 'x':
+          handleGameRestart();
+          break;
+      }
+    });
+
+    connectSSE();
+  </script>
+</body>
+</html>

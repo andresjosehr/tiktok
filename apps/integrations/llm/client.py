@@ -87,14 +87,12 @@ class LLMClient:
             'temperature': temperature,
         }
 
-        # Configurar reasoning para modelos que lo soporten (Groq)
+        # Configurar reasoning solo para modelos que lo soporten
         if 'groq.com' in self.api_url:
-            # Para modelos GPT-OSS, usar reasoning_effort="low" para minimizar tokens de razonamiento
             if 'gpt-oss' in self.model:
                 data['reasoning_effort'] = 'low'
-                print(f"[LLM] 🔽 Usando reasoning_effort=low (minimiza razonamiento)")
-            else:
-                # Para otros modelos, deshabilitar reasoning completamente
+                print(f"[LLM] 🔽 Usando reasoning_effort=low")
+            elif 'deepseek-r1' in self.model:
                 data['include_reasoning'] = False
                 print(f"[LLM] 🚫 Deshabilitando reasoning (include_reasoning=False)")
 

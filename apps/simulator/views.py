@@ -92,7 +92,7 @@ def send_event(request):
         # Streak fields (del frontend)
         is_streaking = data.get('is_streaking', False)
         streak_id = data.get('streak_id', None)
-        streak_status = data.get('streak_status', 'end' if event_type == 'GiftEvent' else None)
+        streak_status = data.get('streak_status', None)
 
         event = LiveEvent.objects.create(
             session=session,
