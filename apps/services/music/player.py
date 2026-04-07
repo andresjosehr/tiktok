@@ -1,172 +1,149 @@
 """
 Manejador de reproduccion de audio para el servicio de musica
+Envia audio al browser de DinoChrome via SSE (sin VLC)
 """
 
 import os
-import sys
-import subprocess
 import threading
-import shutil
+import time
+
+from django.conf import settings
 
 
 class MusicPlayer:
     """
-    Manejador de reproduccion de musica con control de interrupcion
-    Usa VLC directamente para reproducir audio
+    Reproduce musica enviando URLs al browser via SSE.
+    El browser se encarga de la reproduccion real.
     """
 
     def __init__(self):
-        self.current_process = None
         self.current_song = None
         self.is_playing = False
         self.lock = threading.Lock()
+        self._finish_callback = None
+        self._duration_thread = None
 
     def play(self, file_path, on_finish_callback=None):
         """
-        Reproduce audio usando VLC
+        Envia cancion al browser via SSE
 
         Args:
-            file_path (str): Ruta absoluta del archivo
+            file_path (str): Ruta absoluta del archivo MP3
             on_finish_callback (callable): Funcion a ejecutar cuando termine
 
         Returns:
-            bool: True si se inició correctamente
+            bool: True si se envio correctamente
         """
-        print(f"[PLAYER] ========== INICIO DE REPRODUCCION ==========")
-        print(f"[PLAYER] Ruta recibida: {file_path}")
-        print(f"[PLAYER] Tipo de ruta: {type(file_path)}")
-        print(f"[PLAYER] Ruta en repr: {repr(file_path)}")
-        print(f"[PLAYER] Sistema operativo: {sys.platform}")
-        print(f"[PLAYER] Ruta normalizada (os.path.normpath): {os.path.normpath(file_path)}")
-
-        # Verificar existencia
-        exists = os.path.exists(file_path)
-        print(f"[PLAYER] ¿Archivo existe?: {exists}")
-
-        if exists:
-            print(f"[PLAYER] Tamaño del archivo: {os.path.getsize(file_path)} bytes")
-            print(f"[PLAYER] Ruta absoluta: {os.path.abspath(file_path)}")
-        else:
-            print(f"[PLAYER] ARCHIVO NO ENCONTRADO!")
-            print(f"[PLAYER] Directorio padre: {os.path.dirname(file_path)}")
-            print(f"[PLAYER] ¿Directorio existe?: {os.path.exists(os.path.dirname(file_path))}")
-            if os.path.exists(os.path.dirname(file_path)):
-                print(f"[PLAYER] Archivos en el directorio: {os.listdir(os.path.dirname(file_path))}")
+        if not os.path.exists(file_path):
+            print(f"[PLAYER] Archivo no encontrado: {file_path}")
             return False
-
-        # Ubicación de VLC
-        vlc_path = shutil.which('vlc')
-        print(f"[PLAYER] VLC encontrado en: {vlc_path}")
 
         self.stop()
 
         with self.lock:
             try:
-                # Reproducir con VLC en modo headless (sin interfaz)
-                print(f"[PLAYER] Iniciando proceso VLC...")
+                # Construir URL relativa para el browser
+                media_root = str(settings.MEDIA_ROOT)
+                if file_path.startswith(media_root):
+                    relative_path = file_path[len(media_root):].lstrip('/')
+                else:
+                    relative_path = os.path.basename(file_path)
 
-                # Construir comando de VLC
-                vlc_cmd = 'vlc'
+                audio_url = settings.MEDIA_URL + relative_path
 
-                # En Windows, usar ruta completa si shutil.which() no lo encuentra
-                if sys.platform == 'win32' and vlc_path is None:
-                    vlc_cmd = r'C:\Program Files\VideoLAN\VLC\vlc.exe'
-                    print(f"[PLAYER] Usando ruta completa de VLC para Windows: {vlc_cmd}")
+                # Enviar evento SSE al browser
+                from apps.services.dinochrome.overlays.views import send_dinochrome_event
+                music_data = {
+                    'audio_url': audio_url,
+                    'filename': os.path.basename(file_path),
+                }
+                send_dinochrome_event('music_play', music_data)
 
-                process = subprocess.Popen(
-                    [vlc_cmd, '--intf', 'dummy', '--play-and-exit', '--no-video', '--gain=0.1', file_path],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
-                )
+                # Guardar para browsers que se conecten tarde
+                self._save_last_music(music_data)
 
-                self.current_process = process
                 self.current_song = file_path
                 self.is_playing = True
+                self._finish_callback = on_finish_callback
+
+                # Estimar duracion y programar callback
+                duration = self._estimate_duration(file_path)
+                print(f"[PLAYER] Enviado al browser: {os.path.basename(file_path)} (~{duration:.0f}s)")
 
                 if on_finish_callback:
-                    monitor_thread = threading.Thread(
-                        target=self._monitor_playback,
-                        args=(process, on_finish_callback),
+                    self._duration_thread = threading.Thread(
+                        target=self._wait_and_finish,
+                        args=(duration, file_path, on_finish_callback),
                         daemon=True
                     )
-                    monitor_thread.start()
+                    self._duration_thread.start()
 
-                print(f"[PLAYER] Reproduciendo con VLC: {os.path.basename(file_path)}")
-                print(f"[PLAYER] PID del proceso: {process.pid}")
-                print(f"[PLAYER] ========== FIN DE INICIO DE REPRODUCCION ==========")
                 return True
 
             except Exception as e:
-                print(f"[PLAYER] Error reproduciendo audio: {str(e)}")
-                print(f"[PLAYER] Tipo de error: {type(e).__name__}")
-                import traceback
-                print(f"[PLAYER] Traceback: {traceback.format_exc()}")
+                print(f"[PLAYER] Error: {e}")
                 self.is_playing = False
                 return False
 
     def stop(self, interrupted=True):
-        """
-        Detiene la reproduccion actual
-
-        Args:
-            interrupted (bool): Si fue interrumpida (True) o termino naturalmente (False)
-
-        Returns:
-            bool: True si habia algo reproduciendose
-        """
+        """Detiene la reproduccion actual"""
         with self.lock:
-            if self.current_process and self.is_playing:
+            if self.is_playing:
                 try:
-                    status = "(interrumpida)" if interrupted else ""
-                    print(f"[PLAYER] Deteniendo reproduccion {status}")
-                    self.current_process.terminate()
-                    self.current_process.wait(timeout=2)
-                    self.current_process = None
-                    self.current_song = None
-                    self.is_playing = False
-                    return True
-                except Exception as e:
-                    print(f"[PLAYER] Error deteniendo: {str(e)}")
+                    from apps.services.dinochrome.overlays.views import send_dinochrome_event
+                    send_dinochrome_event('music_stop', {})
+                except Exception:
+                    pass
 
+                self.current_song = None
+                self.is_playing = False
+                self._finish_callback = None
+                return True
             return False
 
-    def _monitor_playback(self, process, on_finish_callback):
-        """
-        Monitorea el proceso de reproduccion y ejecuta callback al terminar
+    def _wait_and_finish(self, duration, file_path, callback):
+        """Espera la duracion estimada y ejecuta callback"""
+        time.sleep(duration)
 
-        Args:
-            process: Proceso de VLC
-            on_finish_callback: Funcion a ejecutar cuando termine
-        """
+        with self.lock:
+            # Verificar que sigue siendo la misma cancion
+            if self.current_song == file_path and self.is_playing:
+                self.is_playing = False
+                self.current_song = None
+
+                should_callback = True
+            else:
+                should_callback = False
+
+        if should_callback:
+            callback(interrupted=False)
+
+    def _estimate_duration(self, file_path):
+        """Estima duracion de un MP3 en segundos"""
         try:
-            # Esperar a que termine el proceso
-            return_code = process.wait()
+            file_size = os.path.getsize(file_path)
+            # MP3 tipico: ~192kbps
+            return file_size / (192000 / 8)
+        except Exception:
+            return 180  # Fallback: 3 minutos
 
-            with self.lock:
-                # Verificar que este proceso sigue siendo el actual
-                # (si se llamo stop() o play() con otra cancion, current_process cambio)
-                is_current = self.current_process == process
-
-                if is_current and self.is_playing:
-                    # Termino naturalmente (no fue interrumpido por stop())
-                    print(f"[PLAYER] Cancion terminada (return_code={return_code})")
-                    self.is_playing = False
-                    self.current_song = None
-                    self.current_process = None
-
-            # Ejecutar callback FUERA del lock para evitar deadlocks
-            if is_current and on_finish_callback:
-                on_finish_callback(interrupted=False)
-
-        except Exception as e:
-            print(f"[PLAYER] Error en monitor: {str(e)}")
+    def _save_last_music(self, data):
+        """Guarda la ultima cancion para browsers que se conecten tarde"""
+        try:
+            import json
+            from pathlib import Path
+            from django.conf import settings as s
+            last_file = Path(s.BASE_DIR) / 'tmp' / 'dinochrome_last_music.json'
+            last_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(last_file, 'w') as f:
+                json.dump(data, f)
+        except Exception:
+            pass
 
     def get_current_song(self):
-        """Retorna la ruta de la cancion actual"""
         with self.lock:
             return self.current_song if self.is_playing else None
 
     def is_currently_playing(self):
-        """Verifica si hay algo reproduciendose"""
         with self.lock:
             return self.is_playing

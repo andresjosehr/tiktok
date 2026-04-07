@@ -9,4 +9,7 @@ urlpatterns = [
 
     # SSE endpoint unico
     path('events/', views.dinochrome_events, name='events'),
+
+    # Cancion actual (para browsers que se conectan tarde)
+    path('current-music/', views.dinochrome_current_music, name='current_music'),
 ]

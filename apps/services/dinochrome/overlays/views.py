@@ -38,6 +38,27 @@ def dinochrome_view(request):
     return render(request, 'dinochrome/index.html', context)
 
 
+def dinochrome_current_music(request):
+    """Retorna la cancion actual del music service (para browsers que se conectan tarde)"""
+    from django.http import JsonResponse
+    try:
+        from apps.services.music.player import MusicPlayer
+        from apps.queue_system.models import Service
+        from apps.queue_system.worker import ServiceWorker
+
+        # Buscar el worker activo de music y obtener la cancion actual
+        # Como no tenemos acceso directo al worker, re-enviamos desde el player
+        # Truco: guardar la ultima cancion enviada en un archivo
+        last_music_file = Path(settings.BASE_DIR) / 'tmp' / 'dinochrome_last_music.json'
+        if last_music_file.exists():
+            with open(last_music_file, 'r') as f:
+                data = json.load(f)
+            return JsonResponse(data)
+    except Exception:
+        pass
+    return JsonResponse({'audio_url': None})
+
+
 def dinochrome_events(request):
     """SSE endpoint unico para todos los eventos de DinoChrome"""
     def event_stream():

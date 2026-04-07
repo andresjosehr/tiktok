@@ -3,6 +3,11 @@ DinoChrome Service - Procesador de eventos TikTok para juego DinoChrome
 
 Todo se renderiza en el browser via SSE (sin Selenium).
 El frontend maneja: juego, overlays, audio TTS.
+
+Concurrencia:
+- Ice Cream / GG: siempre paralelo, nunca bloqueado
+- Rose: secuencial entre si, pero Rosa la interrumpe
+- Rosa: maxima prioridad, secuencial entre si, interrumpe Rose
 """
 
 import os
@@ -25,13 +30,16 @@ class DinoChromeService(BaseQueueService):
         self.elevenlabs = ElevenLabsClient()
         self.llm = LLMClient()
         self.gif_counter = 0
-        self.gif_slot_queue = []
+
+        # Concurrencia Rosa/Rose
+        self.tts_lock = threading.Lock()       # Serializa todo TTS (Rosa y Rose)
+        self.rosa_pending = 0                   # Contador de Rosas pendientes
+        self.rosa_pending_lock = threading.Lock()
+        self.rose_interrupted = threading.Event()  # Senal para interrumpir Rose
 
     def on_start(self):
         from datetime import datetime
         self.session_start = datetime.now()
-        self.gif_slot_queue = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        # Recargar clientes con config actualizada de la DB
         self.elevenlabs = ElevenLabsClient()
         self.llm = LLMClient()
 
@@ -45,15 +53,15 @@ class DinoChromeService(BaseQueueService):
             if event_type == 'GiftEvent':
                 return self._process_gift(live_event, queue_item)
             elif event_type == 'CommentEvent':
-                return self._process_comment(live_event, queue_item)
+                return True
             elif event_type == 'LikeEvent':
-                return self._process_like(live_event, queue_item)
+                return True
             elif event_type == 'ShareEvent':
-                return self._process_share(live_event, queue_item)
+                return True
             elif event_type == 'FollowEvent':
-                return self._process_follow(live_event, queue_item)
+                return True
             elif event_type == 'SubscribeEvent':
-                return self._process_subscribe(live_event, queue_item)
+                return True
             else:
                 return False
 
@@ -68,28 +76,34 @@ class DinoChromeService(BaseQueueService):
 
             print(f"[DINOCHROME] Gift: {gift_name} de @{username} (streak: {live_event.streak_status}, Queue ID: {queue_item.id})")
 
-            # Rose: solo procesar al FINALIZAR la racha (una sola accion con el total)
+            # === ROSA: maxima prioridad, interrumpe Rose ===
+            if gift_name == 'rosa':
+                if live_event.streak_status == 'end':
+                    return True
+                return self._process_rosa(username, queue_item)
+
+            # === ROSE: secuencial, se interrumpe si hay Rosa pendiente ===
             if gift_name == 'rose':
                 if live_event.streak_status in ('start', 'continue'):
-                    return True  # Ignorar intermedios, esperar al end
-                return self._handle_rose(username, event_data, queue_item)
+                    return True
+                return self._process_rose(username, event_data, queue_item)
 
-            # Para Rosa, Ice Cream, etc: procesar CADA evento, ignorar solo el end
+            # Para el resto: ignorar end de racha
             if live_event.streak_status == 'end':
                 return True
 
-            # Rosa: LLM + TTS + reinicia el juego (cada uno de la racha)
-            if gift_name == 'rosa':
-                return self._handle_rosa(username, queue_item)
-
-            # Ice Cream / Awesome / Enjoy Music: GIF bailando (cada uno de la racha)
+            # === ICE CREAM / GIFs: siempre paralelo, instantaneo ===
             if any(kw in gift_name for kw in ['ice cream', 'cone', 'awesome', "you're awesome", 'enjoy music', 'music']):
                 self._send_dancing_gif(live_event)
                 return True
 
-            # Otro regalo: audio agradecimiento
-            print(f"[DINOCHROME] Regalo '{gift_name}' de @{username} - agradecimiento")
-            self._send_tts_audio('default_gift_thanks.mp3')
+            # === GG: siempre paralelo, instantaneo ===
+            if gift_name == 'gg':
+                print(f"[DINOCHROME] GG de @{username}")
+                return True
+
+            # Otro regalo
+            print(f"[DINOCHROME] Regalo '{gift_name}' de @{username}")
             return True
 
         except Exception as e:
@@ -98,18 +112,64 @@ class DinoChromeService(BaseQueueService):
             traceback.print_exc()
             return False
 
+    def _process_rosa(self, username, queue_item):
+        """
+        Rosa: maxima prioridad.
+        - Interrumpe cualquier Rose en curso
+        - Secuencial entre Rosas (una a la vez)
+        - LLM se genera ANTES del lock (paralelo), pero restart+audio DENTRO del lock (secuencial)
+        """
+        # Marcar que hay Rosa pendiente -> Rose debe abortarse
+        with self.rosa_pending_lock:
+            self.rosa_pending += 1
+        self.rose_interrupted.set()
+
+        print(f"[DINOCHROME] ROSA de @{username} - prioridad maxima (pendientes: {self.rosa_pending})")
+
+        # Generar LLM + TTS FUERA del lock (en paralelo mientras otra Rosa reproduce)
+        ai_response, audio_file = self._generate_rosa_audio(username)
+
+        # Adquirir lock para restart + reproduccion (secuencial)
+        with self.tts_lock:
+            self.rose_interrupted.clear()
+
+            try:
+                return self._play_rosa(username, ai_response, audio_file)
+            finally:
+                with self.rosa_pending_lock:
+                    self.rosa_pending -= 1
+
+    def _process_rose(self, username, event_data, queue_item):
+        """
+        Rose: secuencial, pero se aborta si hay Rosa pendiente.
+        """
+        # Si hay Rosa pendiente, no ejecutar Rose
+        with self.rosa_pending_lock:
+            if self.rosa_pending > 0:
+                print(f"[DINOCHROME] Rose de @{username} ABORTADA - Rosa pendiente")
+                return True
+
+        # Adquirir lock TTS
+        with self.tts_lock:
+            # Verificar de nuevo dentro del lock
+            with self.rosa_pending_lock:
+                if self.rosa_pending > 0:
+                    print(f"[DINOCHROME] Rose de @{username} ABORTADA - Rosa pendiente")
+                    return True
+
+            return self._handle_rose(username, event_data, queue_item)
+
     def _handle_rose(self, username, event_data, queue_item):
-        """Rose gift: overlay + TTS correccion"""
+        """Rose gift: overlay + TTS correccion (puede ser interrumpida por Rosa)"""
         rose_start = time.time()
 
-        # Enviar overlay de rosa al frontend
+        # Enviar overlay
         send_dinochrome_event('rose_gift', {
             'username': username,
             'gift_name': 'Rose',
             'count': event_data.get('gift', {}).get('count', 1),
         })
 
-        # Generar y enviar audio TTS
         try:
             correction_text = f"No es 'Rose' {username}, es 'Rosa'... ROSA!"
             audio_file = self.elevenlabs.text_to_speech_and_save(
@@ -118,11 +178,25 @@ class DinoChromeService(BaseQueueService):
                 play_audio=False,
                 wait=False
             )
+
+            # Verificar interrupcion antes de reproducir
+            if self.rose_interrupted.is_set():
+                print(f"[DINOCHROME] Rose INTERRUMPIDA por Rosa antes de audio")
+                return True
+
             if audio_file:
                 self._send_tts_audio(audio_file)
                 duration = self._get_audio_duration(audio_file)
-                if duration > 0:
-                    time.sleep(duration)
+
+                # Esperar duracion pero verificar interrupcion cada 0.5s
+                elapsed = 0
+                while elapsed < duration:
+                    if self.rose_interrupted.is_set():
+                        print(f"[DINOCHROME] Rose INTERRUMPIDA por Rosa durante audio")
+                        return True
+                    time.sleep(min(0.5, duration - elapsed))
+                    elapsed += 0.5
+
                 total_time = time.time() - rose_start
                 print(f"[DINOCHROME] Rose completado en {total_time:.1f}s")
         except Exception as e:
@@ -130,11 +204,8 @@ class DinoChromeService(BaseQueueService):
 
         return True
 
-    def _handle_rosa(self, username, queue_item):
-        """Rosa gift: LLM respuesta + TTS + restart juego"""
-        rosa_start = time.time()
-
-        # Sistema de prompts variados
+    def _generate_rosa_audio(self, username):
+        """Genera texto LLM + audio TTS para Rosa (puede correr en paralelo)"""
         system_prompts = [
             f"Eres un streamer jugando DinoChrome en TikTok Live. {username} dono una rosa que reinicio tu juego. Estas frustrado pero de forma comica. Genera UNA SOLA FRASE corta (maximo 200 caracteres) expresando tu frustracion de forma exagerada pero divertida. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserias, sin palabras ofensivas. Contenido 100% familiar y apropiado para TikTok.",
             f"Eres un streamer jugando DinoChrome en TikTok Live. {username} dono una rosa que reinicio tu juego. Eres dramatico y exagerado. Genera UNA SOLA FRASE corta (maximo 200 caracteres) como si fuera una tragedia comica. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserias, sin palabras ofensivas. Contenido 100% familiar y apropiado para TikTok.",
@@ -146,7 +217,7 @@ class DinoChromeService(BaseQueueService):
             f"Eres un streamer jugando DinoChrome en TikTok Live. {username} dono una rosa que reinicio tu juego. Eres jugueton y bromista. Genera UNA SOLA FRASE corta (maximo 200 caracteres) bromeando sobre la situacion. Menciona a {username}. IMPORTANTE: Sin maldiciones, sin groserias, sin palabras ofensivas. Contenido 100% familiar y apropiado para TikTok.",
         ]
 
-        # PASO 1: Generar texto con LLM (re-instanciar para tomar config actualizada)
+        # PASO 1: Generar texto con LLM
         self.llm = LLMClient()
         ai_response = None
         try:
@@ -166,6 +237,7 @@ class DinoChromeService(BaseQueueService):
             ai_response = f"Ay {username}, me reiniciaste el juego con esa rosa!"
 
         # PASO 2: Generar audio con ElevenLabs
+        audio_file = None
         try:
             audio_file = self.elevenlabs.text_to_speech_and_save(
                 ai_response,
@@ -173,87 +245,67 @@ class DinoChromeService(BaseQueueService):
                 play_audio=False,
                 wait=False
             )
+        except Exception as e:
+            print(f"[DINOCHROME] Error ElevenLabs: {e}")
 
-            # PASO 3: Reiniciar juego + enviar audio (todo via SSE)
+        return ai_response, audio_file
+
+    def _play_rosa(self, username, ai_response, audio_file):
+        """Reproduce Rosa: restart + audio (corre dentro del tts_lock, secuencial)"""
+        rosa_start = time.time()
+
+        try:
+            send_dinochrome_event('game_restart', {})
+
             if audio_file:
-                send_dinochrome_event('game_restart', {})
                 self._send_tts_audio(audio_file)
 
-                # Esperar a que el audio termine antes de procesar el siguiente evento
                 duration = self._get_audio_duration(audio_file)
                 if duration > 0:
-                    print(f"[DINOCHROME] Esperando {duration:.1f}s a que termine el audio...")
+                    print(f"[DINOCHROME] Rosa: esperando {duration:.1f}s audio...")
                     time.sleep(duration)
 
                 total_time = time.time() - rosa_start
-                print(f"[DINOCHROME] Rosa completado en {total_time:.1f}s")
-            else:
-                send_dinochrome_event('game_restart', {})
+                print(f"[DINOCHROME] Rosa de @{username} completado en {total_time:.1f}s")
         except Exception as e:
-            print(f"[DINOCHROME] Error ElevenLabs: {e}")
-            send_dinochrome_event('game_restart', {})
+            print(f"[DINOCHROME] Error reproduciendo Rosa: {e}")
             return False
 
         return True
 
     def _send_dancing_gif(self, live_event):
-        """Envia un GIF bailando a un slot disponible"""
+        """Envia un GIF bailando con posicion aleatoria (ilimitado)"""
         try:
-            if not self.gif_slot_queue:
-                self.gif_slot_queue = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-
-            slot = self.gif_slot_queue.pop(0)
-
             gif_index = self.gif_counter % len(AVAILABLE_GIFS)
             gif_filename = AVAILABLE_GIFS[gif_index]
             self.gif_counter += 1
 
-            event_data = live_event.event_data
             username = live_event.user_nickname or live_event.user_unique_id or 'Anonimo'
-            gift_name = event_data.get('gift', {}).get('name', 'Regalo')
 
             send_dinochrome_event('dancing_gif', {
                 'username': username,
-                'gift_name': gift_name,
                 'gif_filename': gif_filename,
-                'slot': slot,
             })
 
-            print(f"[DINOCHROME] GIF: {gif_filename} -> Slot {slot} ({username})")
-
-            def free_slot():
-                time.sleep(60)
-                if slot not in self.gif_slot_queue:
-                    self.gif_slot_queue.append(slot)
-
-            threading.Thread(target=free_slot, daemon=True).start()
+            print(f"[DINOCHROME] GIF: {gif_filename} ({username})")
 
         except Exception as e:
             print(f"[DINOCHROME] Error enviando GIF: {e}")
-            import traceback
-            traceback.print_exc()
 
     def _get_audio_duration(self, audio_file):
         """Calcula la duracion de un archivo MP3 en segundos"""
         try:
-            import struct
-
             absolute_path = os.path.join(str(settings.MEDIA_ROOT), audio_file)
             file_size = os.path.getsize(absolute_path)
-
-            # Estimacion para MP3: bitrate tipico de ElevenLabs es ~128kbps
-            # duracion = tamaño_bytes / (bitrate_bps / 8)
             estimated_duration = file_size / (128000 / 8)
-            return estimated_duration + 0.5  # Medio segundo extra de margen
+            return estimated_duration + 0.5
         except Exception as e:
             print(f"[DINOCHROME] Error calculando duracion audio: {e}")
-            return 3.0  # Fallback: 3 segundos
+            return 3.0
 
     def _send_tts_audio(self, audio_file):
         """Envia evento para que el browser reproduzca audio TTS"""
-        # Construir URL relativa al media root
         if audio_file.startswith('/'):
-            # Path absoluto: extraer parte relativa a MEDIA_ROOT
             media_root = str(settings.MEDIA_ROOT)
             if audio_file.startswith(media_root):
                 audio_url = settings.MEDIA_URL + audio_file[len(media_root):].lstrip('/')
@@ -265,18 +317,3 @@ class DinoChromeService(BaseQueueService):
         send_dinochrome_event('tts_audio', {
             'audio_url': audio_url,
         })
-
-    def _process_comment(self, live_event, queue_item):
-        return True
-
-    def _process_like(self, live_event, queue_item):
-        return True
-
-    def _process_share(self, live_event, queue_item):
-        return True
-
-    def _process_follow(self, live_event, queue_item):
-        return True
-
-    def _process_subscribe(self, live_event, queue_item):
-        return True
