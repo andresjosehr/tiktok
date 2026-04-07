@@ -134,8 +134,8 @@ class EventDispatcher:
 
         # 1. Filtrar por is_stackable para GiftEvent
         if live_event.event_type == 'GiftEvent' and not config.is_stackable:
-            # Solo procesar si la racha ha finalizado (streak_status == 'end')
-            if live_event.streak_status != 'end':
+            # Solo procesar si la racha ha finalizado ('end') o no hay racha (None)
+            if live_event.streak_status in ('start', 'continue'):
                 return {
                     'status': 'skipped',
                     'reason': f'Racha en curso (status={live_event.streak_status})'

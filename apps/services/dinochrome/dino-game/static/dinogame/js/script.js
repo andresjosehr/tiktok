@@ -167,11 +167,16 @@ function autoJump() {
 }
 
 function setPixelToWorldScale() {
+  // Use safe zone dimensions if inside TikTok overlay, otherwise use window
+  const safeZone = document.querySelector('.game-safe-zone')
+  const containerW = safeZone ? safeZone.clientWidth : window.innerWidth
+  const containerH = safeZone ? safeZone.clientHeight : window.innerHeight
+
   let worldToPixelScale
-  if (window.innerWidth / window.innerHeight < WORLD_WIDTH / WORLD_HEIGHT) {
-    worldToPixelScale = window.innerWidth / WORLD_WIDTH
+  if (containerW / containerH < WORLD_WIDTH / WORLD_HEIGHT) {
+    worldToPixelScale = containerW / WORLD_WIDTH
   } else {
-    worldToPixelScale = window.innerHeight / WORLD_HEIGHT
+    worldToPixelScale = containerH / WORLD_HEIGHT
   }
 
   worldElem.style.width = `${WORLD_WIDTH * worldToPixelScale}px`

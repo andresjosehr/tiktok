@@ -76,31 +76,29 @@ class DinoChromeService(BaseQueueService):
 
             print(f"[DINOCHROME] Gift: {gift_name} de @{username} (streak: {live_event.streak_status}, Queue ID: {queue_item.id})")
 
+            # === ICE CREAM / GIFs: siempre paralelo, cada evento de racha se procesa ===
+            if any(kw in gift_name for kw in ['ice cream', 'cone', 'awesome', "you're awesome", 'enjoy music', 'music']):
+                self._send_dancing_gif(live_event)
+                return True
+
+            # === GG: siempre paralelo, TTS "Cambiando la musica" ===
+            if gift_name == 'gg':
+                self._process_gg(username)
+                return True
+
             # === ROSA: maxima prioridad, interrumpe Rose ===
+            # Solo procesar cada evento individual (start/continue), ignorar end de racha
             if gift_name == 'rosa':
                 if live_event.streak_status == 'end':
                     return True
                 return self._process_rosa(username, queue_item)
 
             # === ROSE: secuencial, se interrumpe si hay Rosa pendiente ===
+            # Solo procesar al final de racha (end) o sin racha (None)
             if gift_name == 'rose':
                 if live_event.streak_status in ('start', 'continue'):
                     return True
                 return self._process_rose(username, event_data, queue_item)
-
-            # Para el resto: ignorar end de racha
-            if live_event.streak_status == 'end':
-                return True
-
-            # === ICE CREAM / GIFs: siempre paralelo, instantaneo ===
-            if any(kw in gift_name for kw in ['ice cream', 'cone', 'awesome', "you're awesome", 'enjoy music', 'music']):
-                self._send_dancing_gif(live_event)
-                return True
-
-            # === GG: siempre paralelo, instantaneo ===
-            if gift_name == 'gg':
-                print(f"[DINOCHROME] GG de @{username}")
-                return True
 
             # Otro regalo
             print(f"[DINOCHROME] Regalo '{gift_name}' de @{username}")
@@ -272,6 +270,21 @@ class DinoChromeService(BaseQueueService):
             return False
 
         return True
+
+    def _process_gg(self, username):
+        """GG: reproduce TTS 'Cambiando la musica' (paralelo, no bloquea nada)"""
+        try:
+            audio_file = self.elevenlabs.text_to_speech_and_save(
+                "Cambiando la musica",
+                voice_id="KHCvMklQZZo0O30ERnVn",
+                play_audio=False,
+                wait=False
+            )
+            if audio_file:
+                self._send_tts_audio(audio_file)
+            print(f"[DINOCHROME] GG de @{username} - TTS enviado")
+        except Exception as e:
+            print(f"[DINOCHROME] Error en GG TTS: {e}")
 
     def _send_dancing_gif(self, live_event):
         """Envia un GIF bailando con posicion aleatoria (ilimitado)"""
