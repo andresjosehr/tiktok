@@ -19,7 +19,10 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
+from config.views import database_backup
+
 urlpatterns = [
+    path('backup/', database_backup, name='database_backup'),
     path('admin/', admin.site.urls),
     path('dino/', include('apps.services.dinochrome.dino-game.urls')),
     path('dinochrome/', include('apps.services.dinochrome.overlays.urls')),
@@ -30,6 +33,7 @@ urlpatterns = [
     path('tugofwar/', include('apps.services.tugofwar.game.urls')),
     path('simulator/', include('apps.simulator.urls')),
     path('analytics/', include('apps.tiktok_events.urls')),
+    path('', include('apps.tiktok_events.urls')),
 ]
 
 # Serve media and static files in development
