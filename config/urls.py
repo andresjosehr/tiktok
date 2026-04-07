@@ -19,10 +19,11 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
-from config.views import database_backup
+from config.views import database_backup, database_sync
 
 urlpatterns = [
     path('backup/', database_backup, name='database_backup'),
+    path('sync/', database_sync, name='database_sync'),
     path('admin/', admin.site.urls),
     path('dino/', include('apps.services.dinochrome.dino-game.urls')),
     path('dinochrome/', include('apps.services.dinochrome.overlays.urls')),

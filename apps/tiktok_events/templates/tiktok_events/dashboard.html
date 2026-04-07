@@ -398,30 +398,21 @@ function closeCompare() {
     selectedForCompare.clear();
 }
 
-// Backup download
+// Sync database from remote server
 function downloadBackup() {
     const btn = document.getElementById('backup-btn');
     const status = document.getElementById('backup-status');
     btn.disabled = true;
-    btn.textContent = 'Generando backup...';
+    btn.textContent = 'Sincronizando...';
     status.textContent = '';
 
-    fetch('/backup/')
-        .then(res => {
-            if (!res.ok) throw new Error(`Error ${res.status}`);
-            const filename = res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] || 'backup.sql.gz';
-            return res.blob().then(blob => ({ blob, filename }));
-        })
-        .then(({ blob, filename }) => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.click();
-            URL.revokeObjectURL(url);
-            const sizeMB = (blob.size / 1024 / 1024).toFixed(2);
-            status.textContent = `${filename} (${sizeMB} MB)`;
+    fetch('/sync/')
+        .then(res => res.json().then(data => ({ ok: res.ok, data })))
+        .then(({ ok, data }) => {
+            if (!ok) throw new Error(data.error || 'Error desconocido');
+            status.textContent = 'Sync completado';
             status.style.color = 'var(--green)';
+            setTimeout(() => location.reload(), 1500);
         })
         .catch(err => {
             status.textContent = `Error: ${err.message}`;
