@@ -76,13 +76,17 @@ class DinoChromeService(BaseQueueService):
 
             print(f"[DINOCHROME] Gift: {gift_name} de @{username} (streak: {live_event.streak_status}, Queue ID: {queue_item.id})")
 
-            # === ICE CREAM / GIFs: siempre paralelo, cada evento de racha se procesa ===
+            # === ICE CREAM / GIFs: paralelo, uno por racha (end/None) ===
             if any(kw in gift_name for kw in ['ice cream', 'cone', 'awesome', "you're awesome", 'enjoy music', 'music']):
+                if live_event.streak_status in ('start', 'continue'):
+                    return True
                 self._send_dancing_gif(live_event)
                 return True
 
-            # === GG: siempre paralelo, TTS "Cambiando la musica" ===
+            # === GG: paralelo, uno por racha (end/None) ===
             if gift_name == 'gg':
+                if live_event.streak_status in ('start', 'continue'):
+                    return True
                 self._process_gg(username)
                 return True
 
