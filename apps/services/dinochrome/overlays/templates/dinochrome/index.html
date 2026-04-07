@@ -158,6 +158,28 @@
       display: inline-block;
     }
 
+    .gif-item .gif-timer-bar {
+      width: 80%;
+      height: 3px;
+      margin: 3px auto 0;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .gif-item .gif-timer-fill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #ff6b6b, #ffa500);
+      border-radius: 2px;
+      animation: timerShrink var(--gif-duration) linear forwards;
+    }
+
+    @keyframes timerShrink {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+
     @keyframes gifFadeIn {
       from { opacity: 0; transform: scale(0.5); }
       to { opacity: 1; transform: scale(1); }
@@ -168,15 +190,15 @@
       to { opacity: 0; transform: scale(0.3); }
     }
 
-    /* ===== ROSE OVERLAY (inside .world) ===== */
+    /* ===== ROSE OVERLAY (above GIFs in tiktok-frame) ===== */
     .rose-overlay {
       position: absolute;
-      top: 10%;
+      top: 20%;
       left: 50%;
       transform: translate(-50%, 0) scale(0);
       opacity: 0;
       pointer-events: none;
-      z-index: 100;
+      z-index: 70;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -315,11 +337,6 @@
         <img src="{% static 'dinogame/imgs/ground.png' %}" class="ground" data-ground>
         <img src="{% static 'dinogame/imgs/dino-stationary.png' %}" class="dino" data-dino>
 
-        <!-- Rose Overlay (inside world) -->
-        <div id="roseOverlay" class="rose-overlay">
-          <img class="rose-image" src="{% static 'dinochrome_overlays/no-rose.png' %}" alt="No Rose">
-          <div class="rose-text" id="roseText">Gracias!</div>
-        </div>
       </div>
 
       <!-- Gift Indicators (inside safe zone, right below the game) -->
@@ -343,6 +360,11 @@
     <!-- GIF Container (ilimitado) -->
     <div class="gif-container" id="gifContainer"></div>
 
+    <!-- Rose Overlay (above GIFs) -->
+    <div id="roseOverlay" class="rose-overlay">
+      <img class="rose-image" src="{% static 'dinochrome_overlays/no-rose.png' %}" alt="No Rose">
+      <div class="rose-text" id="roseText">Gracias!</div>
+    </div>
 
     <!-- SSE Status -->
     <div id="sseStatus" class="sse-status">SSE: conectando...</div>
@@ -350,37 +372,6 @@
 
   <!-- Dino game JS (modular) -->
   <script src="{% static 'dinogame/js/script.js' %}" type="module"></script>
-
-  <!-- Override dino world sizing to fit safe zone instead of window -->
-  <script>
-    (function() {
-      const WORLD_WIDTH = 100;
-      const WORLD_HEIGHT = 30;
-
-      function resizeWorld() {
-        const safeZone = document.querySelector('.game-safe-zone');
-        const world = document.querySelector('[data-world]');
-        if (!safeZone || !world) return;
-
-        const zoneW = safeZone.clientWidth;
-        const zoneH = safeZone.clientHeight;
-
-        let scale;
-        if (zoneW / zoneH < WORLD_WIDTH / WORLD_HEIGHT) {
-          scale = zoneW / WORLD_WIDTH;
-        } else {
-          scale = zoneH / WORLD_HEIGHT;
-        }
-
-        world.style.width = (WORLD_WIDTH * scale) + 'px';
-        world.style.height = (WORLD_HEIGHT * scale) + 'px';
-      }
-
-      // Run after dino game script has initialized
-      setTimeout(resizeWorld, 100);
-      window.addEventListener('resize', resizeWorld);
-    })();
-  </script>
 
   <!-- DinoChrome SSE + Overlays + Audio -->
   <script>
@@ -449,9 +440,11 @@
       el.style.top = top + '%';
       el.style.left = left + '%';
 
+      el.style.setProperty('--gif-duration', GIF_DURATION + 'ms');
       el.innerHTML = `
         <img src="/static/dinochrome_overlays/gifs/${gifFilename}" alt="">
         <div class="gif-username">${username}</div>
+        <div class="gif-timer-bar"><div class="gif-timer-fill"></div></div>
       `;
 
       gifContainer.appendChild(el);

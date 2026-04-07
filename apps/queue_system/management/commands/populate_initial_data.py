@@ -4,7 +4,7 @@ from apps.app_config.models import Config
 
 
 class Command(BaseCommand):
-    help = 'Popula datos iniciales: Config de tiktok_user y servicios DinoChrome y Overlays'
+    help = 'Popula datos iniciales: Config de tiktok_user y servicios DinoChrome, Music y Tug of War'
 
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('🚀 Iniciando población de datos iniciales...'))
@@ -103,8 +103,9 @@ class Command(BaseCommand):
                 'event_type': 'GiftEvent',
                 'is_enabled': True,
                 'priority': 10,  # Máxima prioridad
-                'is_async': False,  # SYNC
-                'is_discardable': False  # Nunca descartar regalos
+                'is_async': True,  # ASYNC - el servicio maneja concurrencia internamente
+                'is_discardable': False,  # Nunca descartar regalos
+                'is_stackable': True,  # El servicio decide que hacer con cada evento de racha
             },
             {
                 'event_type': 'CommentEvent',
@@ -162,94 +163,7 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(f'    {status} {config_data["event_type"]} (P:{config_data["priority"]}, {mode})')
 
-        # 3. Crear servicio Overlays
-        self.stdout.write('\n🎨 Creando servicio Overlays...')
-        overlays, created = Service.objects.get_or_create(
-            slug='overlays',
-            defaults={
-                'name': 'Overlays',
-                'service_class': 'apps.services.overlays.services.OverlaysService',
-                'description': 'Servicio que maneja overlays visuales en OBS/streaming',
-                'is_active': True,
-                'max_queue_size': 100
-            }
-        )
-
-        # Actualizar service_class si ya existe pero tiene el valor antiguo
-        if not created and overlays.service_class != 'apps.services.overlays.services.OverlaysService':
-            overlays.service_class = 'apps.services.overlays.services.OverlaysService'
-            overlays.save()
-        if created:
-            self.stdout.write(self.style.SUCCESS('  ✅ Servicio Overlays creado'))
-        else:
-            self.stdout.write(self.style.WARNING('  ⚠️  Servicio Overlays ya existe'))
-
-        # Configuraciones de eventos para Overlays (TODOS ASYNC)
-        overlays_configs = [
-            {
-                'event_type': 'GiftEvent',
-                'is_enabled': True,
-                'priority': 10,
-                'is_async': True,  # ASYNC
-                'is_discardable': False
-            },
-            {
-                'event_type': 'CommentEvent',
-                'is_enabled': True,
-                'priority': 5,
-                'is_async': True,  # ASYNC
-                'is_discardable': True
-            },
-            {
-                'event_type': 'LikeEvent',
-                'is_enabled': True,
-                'priority': 2,
-                'is_async': True,  # ASYNC
-                'is_discardable': True
-            },
-            {
-                'event_type': 'ShareEvent',
-                'is_enabled': True,
-                'priority': 6,
-                'is_async': True,  # ASYNC
-                'is_discardable': True
-            },
-            {
-                'event_type': 'FollowEvent',
-                'is_enabled': True,
-                'priority': 7,
-                'is_async': True,  # ASYNC
-                'is_discardable': False
-            },
-            {
-                'event_type': 'JoinEvent',
-                'is_enabled': True,
-                'priority': 3,
-                'is_async': True,  # ASYNC
-                'is_discardable': True
-            },
-            {
-                'event_type': 'SubscribeEvent',
-                'is_enabled': True,
-                'priority': 8,
-                'is_async': True,  # ASYNC
-                'is_discardable': False
-            },
-        ]
-
-        self.stdout.write('  📋 Configurando eventos para Overlays...')
-        for config_data in overlays_configs:
-            config, created = ServiceEventConfig.objects.get_or_create(
-                service=overlays,
-                event_type=config_data['event_type'],
-                defaults=config_data
-            )
-            mode = 'ASYNC' if config_data['is_async'] else 'SYNC'
-            status = '✅' if config_data['is_enabled'] else '❌'
-            if created:
-                self.stdout.write(f'    {status} {config_data["event_type"]} (P:{config_data["priority"]}, {mode})')
-
-        # 4. Crear servicio Music
+        # 3. Crear servicio Music
         self.stdout.write('\n🎵 Creando servicio Music...')
         music, created = Service.objects.get_or_create(
             slug='music',
@@ -317,7 +231,7 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(f'    {status} {config_data["event_type"]} (P:{config_data["priority"]}, {mode})')
 
-        # 5. Crear servicio Tug of War
+        # 4. Crear servicio Tug of War
         self.stdout.write('\n⚔️  Creando servicio Tug of War...')
         tugofwar, created = Service.objects.get_or_create(
             slug='tugofwar',
@@ -363,9 +277,8 @@ class Command(BaseCommand):
         self.stdout.write('='*60)
         self.stdout.write('\n📊 Resumen:')
         self.stdout.write(f'  • Config: 8 registros (tiktok_user, elevenlabs_api, llm_*, music_*)')
-        self.stdout.write(f'  • Servicios: 4 (DinoChrome, Overlays, Music, Tug of War)')
+        self.stdout.write(f'  • Servicios: 3 (DinoChrome, Music, Tug of War)')
         self.stdout.write(f'  • DinoChrome: {ServiceEventConfig.objects.filter(service=dinochrome).count()} configuraciones de eventos (SYNC)')
-        self.stdout.write(f'  • Overlays: {ServiceEventConfig.objects.filter(service=overlays).count()} configuraciones de eventos (ASYNC)')
         self.stdout.write(f'  • Music: {ServiceEventConfig.objects.filter(service=music).count()} configuraciones de eventos (SYNC)')
         self.stdout.write(f'  • Tug of War: {ServiceEventConfig.objects.filter(service=tugofwar).count()} configuraciones de eventos (ASYNC)')
         self.stdout.write('\n💡 Puedes ver la configuración en el admin de Django')

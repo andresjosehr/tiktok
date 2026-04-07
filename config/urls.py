@@ -26,7 +26,7 @@ urlpatterns = [
     path('elevenlabs/', include('apps.integrations.elevenlabs.urls')),
     path('llm/', include('apps.integrations.llm.urls')),
     path('audio/', include('apps.audio_player.urls')),
-    path('overlays/', include('apps.services.overlays.urls')),
+
     path('tugofwar/', include('apps.services.tugofwar.game.urls')),
     path('simulator/', include('apps.simulator.urls')),
     path('analytics/', include('apps.tiktok_events.urls')),
