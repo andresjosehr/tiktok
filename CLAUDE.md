@@ -4,32 +4,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Django-based system for capturing TikTok Live events and processing them through a queue system with multiple services. The system uses Docker for containerization and includes integrations with Chrome automation, ElevenLabs TTS, and generic LLM providers.
+Django-based system for capturing TikTok Live events and processing them through a queue system with multiple interactive game services. Designed for running multiple simultaneous TikTok Live streams ("live farming") with automated interactive content that reacts to viewer gifts in real-time.
+
+Business documentation in `docs/tiktok-farm/` (business model, infrastructure, games, risks, execution plan).
 
 ## Key Commands
 
-All commands must be run through Docker Compose:
-
 ```bash
-# Database operations
+# Docker (production)
 docker-compose exec web python manage.py migrate
-docker-compose exec web python manage.py makemigrations
-
-# Initialize system with default services (DinoChrome, Overlays) and config
 docker-compose exec web python manage.py populate_initial_data
-
-# Start complete system (recommended) - Runs workers + TikTok capture
 docker-compose exec web python manage.py start_event_system [--session-name NAME] [--verbose]
+docker-compose exec web python manage.py capture_tiktok_live [--username NAME]
+docker-compose exec web python manage.py run_queue_workers [--service SLUG]
 
-# Individual commands (advanced usage):
-# - Capture TikTok Live events only (creates new session each run)
-docker-compose exec web python manage.py capture_tiktok_live [--username NAME] [--session-name NAME]
+# Local development (SQLite - no .env or DB_ENGINE=sqlite)
+python manage.py migrate
+python manage.py runserver 8080
 
-# - Process queued events with workers only
-docker-compose exec web python manage.py run_queue_workers [--service SLUG] [--verbose]
+# Analytics dashboard
+# http://localhost:8080/analytics/
 
-# Database reset (drops all tables)
-docker-compose exec db bash -c "mysql -u root -p\${MYSQL_ROOT_PASSWORD} tiktok_db -e 'DROP DATABASE tiktok_db; CREATE DATABASE tiktok_db;'"
+# Download music from Google Drive (requires gdown or Google Drive API key)
+python manage.py download_music
 ```
 
 ## Architecture
@@ -38,169 +35,109 @@ docker-compose exec db bash -c "mysql -u root -p\${MYSQL_ROOT_PASSWORD} tiktok_d
 
 1. **Capture Layer** (`apps/tiktok_events`):
    - `TikTokEventCapture` connects to TikTok Live using `TikTokLiveClient`
-   - Each event handler (on_gift, on_comment, etc.) creates a `LiveEvent`
-   - Immediately calls `EventDispatcher.dispatch()` to distribute to service queues
-   - Events are grouped into `LiveSession` instances (one per capture run)
+   - Captures: GiftEvent, CommentEvent, LikeEvent, ShareEvent, FollowEvent, JoinEvent, SubscribeEvent, **ViewerCountEvent** (via RoomUserSeqEvent)
+   - Events grouped into `LiveSession` instances linked to `TikTokAccount`
+   - Auto-links session to TikTokAccount by matching `streamer_unique_id`
 
 2. **Distribution Layer** (`apps/queue_system/dispatcher.py`):
-   - `EventDispatcher.dispatch()` receives a `LiveEvent`
-   - Queries `ServiceEventConfig` to find active services subscribed to that event type
-   - For each service: checks queue size, handles overflow by discarding low-priority events
-   - Creates `EventQueue` items with priority from config
+   - `EventDispatcher.dispatch()` routes events to subscribed services
+   - Priority system with gift-based overrides (Rosa P:10, Rose P:9, Ice Cream P:8)
+   - Queue overflow handling: discards low-priority events when full
 
 3. **Processing Layer** (`apps/queue_system/worker.py`):
-   - `ServiceWorker` runs in separate thread per active service
-   - Pulls events from `EventQueue` ordered by priority DESC, created_at ASC
-   - SYNC mode: processes one at a time (waits for completion)
-   - ASYNC mode: spawns thread per event (parallel processing)
-   - Marks events as completed/failed/discarded
+   - `ServiceWorker` per active service (SYNC or ASYNC mode)
+   - Services process events via `process_event(live_event, queue_item) -> bool`
 
 ### Critical Flow
 
 ```
 TikTok Event → LiveEvent.create() → EventDispatcher.dispatch()
-    ↓
-ServiceEventConfig lookup (active services subscribed to event type)
-    ↓
-EventQueue.create() per service (with priority, is_async from config)
-    ↓
-ServiceWorker pulls by priority → service_instance.process_event()
+    → ServiceEventConfig lookup → EventQueue.create() per service
+    → ServiceWorker pulls by priority → service.process_event()
 ```
 
 ## Core Models
 
 ### `apps/tiktok_events/models.py`
-- **LiveSession**: Groups events by capture period (started_at, ended_at, status)
-- **LiveEvent**: Individual TikTok events (event_type, user_*, event_data JSON, streak fields)
-  - Foreign key to LiveSession
-  - event_data is JSONField with event-specific structure
+- **TikTokAccount**: Account management (country, agency, proxy, purchase_price, follower_count)
+- **LiveSession**: Capture session (account FK, game_type, started_at, ended_at, status)
+- **LiveEvent**: Individual events (event_type, user_*, event_data JSON, streak fields)
+  - `ViewerCountEvent`: viewer_count (concurrent), total_unique_viewers, anonymous
 
 ### `apps/queue_system/models.py`
-- **Service**: Service definition (slug, service_class path, max_queue_size, is_active)
-- **ServiceEventConfig**: Per-service event settings (event_type, priority 1-10, is_async, is_discardable)
-  - Unique constraint: (service, event_type)
-- **EventQueue**: Queued events per service (service FK, live_event FK, priority, is_async, status)
-  - Status: pending → processing → completed/failed/discarded
-  - priority and is_async copied from ServiceEventConfig at enqueue time
-
-## Creating New Services
-
-1. Create class inheriting from `BaseQueueService` in `apps/yourservice/services.py`
-2. Implement required `process_event(live_event, queue_item) -> bool`
-3. Optional hooks: `on_start()`, `on_stop()`, `on_event_received()`, `on_event_processed()`
-4. Register in admin: slug, service_class path (e.g., `apps.yourservice.services.YourService`)
-5. Configure event subscriptions via ServiceEventConfig inline in admin
-
-**Key points:**
-- `process_event()` must return True/False for success/failure
-- Service class is loaded dynamically via importlib by ServiceWorker
-- Worker automatically handles SYNC vs ASYNC based on EventQueue.is_async field
-- Django DB connections closed in worker threads via `close_old_connections()`
-
-## Important Patterns
-
-### Event Distribution Logic
-
-When queue is full (size >= max_queue_size):
-1. If new event is discardable: try to discard lower-priority discardable event, else drop new event
-2. If new event is NOT discardable: discard lower-priority discardable event if exists, else drop new event
-3. Priority comparison: only discard if existing event priority < new event priority
-
-### Gift-Based Priority (`dispatcher.py`)
-
-For GiftEvent, priority is determined by gift name (overrides ServiceEventConfig.priority):
-- `ice_cream`, `ice cream cone`, `cone` → P:10 (LLM + TTS + restart)
-- `rose`, `rosa` → P:9 (TTS simple)
-- `awesome`, `enjoy music`, `music` → P:8 (GIF only)
-- Other gifts → Use ServiceEventConfig.priority (default P:10)
-
-This ensures Ice Cream is processed before Rose even if Rose arrives first.
-
-### Worker Threading Model
-
-- Main thread per service runs `_run_loop()`
-- SYNC events: processed in main thread (blocking)
-- ASYNC events: spawned in separate daemon thread (non-blocking)
-- Async threads tracked in list, cleaned up periodically
-- Graceful shutdown: stops loop, joins threads with timeout
-
-### Session Management
-
-- Session created in `TikTokEventCapture.on_connect()`
-- All subsequent events link to that session
-- Session ended on KeyboardInterrupt (status='completed') or Exception (status='aborted')
-- `end_session()` sets ended_at and status
+- **Service**: Service definition (slug, service_class, max_queue_size, is_active)
+- **ServiceEventConfig**: Per-service event config (priority 1-10, is_async, is_discardable)
+- **EventQueue**: Queued events (status: pending → processing → completed/failed/discarded)
 
 ## Django Apps Structure
 
-- `apps/tiktok_events`: Event capture from TikTok Live
-- `apps/queue_system`: Generic queue system (independent from TikTok)
-- `apps/app_config`: Key-value config store (Config model with meta_key/meta_value)
-- `apps/services/dinochrome`: Chrome automation service with DinoChrome game (SYNC mode)
-- `apps/services/overlays`: Visual overlays service (ASYNC mode)
-- `apps/integrations/elevenlabs`: ElevenLabs TTS integration (text-to-speech + audio playback)
-- `apps/integrations/llm`: Generic LLM client (OpenAI-compatible: DeepSeek, Claude, GPT, LMStudio, etc.)
-- `apps/base_models`: Abstract BaseModel with timestamps (created_at, updated_at)
+- `apps/tiktok_events`: Event capture + **TikTokAccount** + **Analytics dashboard** (`/analytics/`)
+- `apps/queue_system`: Generic queue system with dispatcher, workers, base service
+- `apps/app_config`: Key-value config store (Config model)
+- `apps/services/dinochrome`: Chrome automation with DinoChrome game (SYNC)
+- `apps/services/overlays`: Visual overlays (ASYNC)
+- `apps/services/music`: **Local MP3 playback from media/music/** (gift GG = next track)
+- `apps/integrations/elevenlabs`: ElevenLabs TTS (text-to-speech + VLC playback)
+- `apps/integrations/llm`: Generic LLM client (OpenAI-compatible)
+- `apps/integrations/obs`: OBS WebSocket control
+- `apps/audio_player`: Web-based audio player with dual channels (music/voice)
+- `apps/simulator`: Event simulator for testing without live TikTok
+- `apps/base_models`: Abstract BaseModel with timestamps
 
-## Data Population
+## Music Service
 
-`populate_initial_data` command creates:
-- Config entry: tiktok_user (empty)
-- Service: DinoChrome (SYNC for all events, max_queue_size=50)
-- Service: Overlays (ASYNC for all events, max_queue_size=100)
-- 7 ServiceEventConfig per service with priorities:
-  - GiftEvent: P10 (never discardable)
-  - SubscribeEvent: P9/P8
-  - FollowEvent: P8/P7
-  - ShareEvent: P7/P6
-  - CommentEvent: P6/P5 (discardable)
-  - LikeEvent: P3/P2 (discardable)
-  - JoinEvent: P2/P3 (DinoChrome disabled, Overlays enabled, discardable)
+Music service was refactored from YouTube-based (with credits system) to local MP3 playback:
+- Plays MP3s from `media/music/` sequentially (shuffled on start)
+- Gift "GG" = skip to next track (no credits, no conditions)
+- Music sourced from Epidemic Sound (royalty-free, legal for TikTok Live)
+- `scripts/epidemic_downloader.js` - Browser console script for bulk downloading from Epidemic Sound
+- Music files stored in Google Drive, downloadable via `python manage.py download_music`
 
-## Services & Integrations
+## Analytics Dashboard
 
-### DinoChrome Service (`apps/services/dinochrome/DinoChromeService.py`)
-- Controls Chrome browser with Selenium WebDriver
-- Loads DinoChrome game at http://web:8000/dino/
-- Auto-plays the game with event-based controls
-- On GiftEvent (Rosa/Rose): restarts game + plays ElevenLabs TTS (SYNC with `wait=True`)
-- Methods: `initialize_browser()`, `restart()`, `get_score()`, `get_high_score()`, `close()`
+Available at `/analytics/` with:
+- KPIs per session: revenue, $/hr, peak viewers, conversion rate, avg watch time
+- Viewer timeline chart (concurrent + unique accumulated, dual axis)
+- Activity by minute (stacked bar: joins, gifts, comments, likes)
+- Gift breakdown + top gifters
+- Session comparison mode
+- API endpoints: `/analytics/api/session/<id>/`, `/analytics/api/compare/?ids=1,2,3`
 
-### Overlays Service (`apps/services/overlays/services.py`)
-- Displays visual overlays (simulated with timeouts)
-- Processes all events in ASYNC mode (parallel)
-- Different timeouts per event type (gifts: 1.2s, comments: 0.4s, likes: 0.2s)
+## Creating New Services (Games)
 
-### ElevenLabs Integration (`apps/integrations/elevenlabs/client.py`)
-- Text-to-speech via ElevenLabs API
-- API key stored in Config.objects.get(meta_key='elevenlabs_api')
-- Audio saved to MEDIA_ROOT/elevenlabs/
-- Playback via PulseAudio (paplay command in Docker)
-- Key methods:
-  - `text_to_speech(text, voice_id, model_id) -> bytes`
-  - `text_to_speech_and_save(text, play_audio=False, wait=False) -> str`
-  - `play_audio(file_path, wait=False) -> bool` (wait=True for SYNC blocking playback)
+1. Create class inheriting from `BaseQueueService`
+2. Implement `process_event(live_event, queue_item) -> bool`
+3. Optional hooks: `on_start()`, `on_stop()`
+4. Register in admin with service_class path
+5. Configure event subscriptions via ServiceEventConfig
 
-### LLM Integration (`apps/integrations/llm/client.py`)
-- Generic OpenAI-compatible LLM client
-- Supports: DeepSeek, Claude, GPT, LMStudio, Ollama, etc.
-- Config keys: `llm_url`, `llm_key`, `llm_model`, `llm_system_prompt`
-- Methods:
-  - `chat(user_message, system_message=None, max_tokens=150, temperature=0.7) -> str`
-  - `generate_response(event_type, username, event_data) -> str` (auto-formats prompts per event type)
+New games should be web-based (HTML/CSS/JS as OBS browser source) receiving events via SSE from Django. NOT Selenium-based like DinoChrome.
 
-### Base Models (`apps/base_models.py`)
-- `BaseModel`: Abstract model with `created_at` and `updated_at` timestamps
-- All models should inherit from BaseModel
+## Important Patterns
+
+### ViewerCountEvent
+- Captured via `RoomUserSeqEvent` from TikTokLive library
+- Fields: `m_total` = concurrent viewers, `total_user` = unique accumulated, `anonymous` = anonymous count
+- Stored as LiveEvent with event_type='ViewerCountEvent'
+- NOT dispatched to service queues (informational only)
+
+### Session-Account Linking
+- `TikTokAccount` stores account metadata (country, proxy, agency, purchase info)
+- `LiveSession.account` auto-linked on connect by matching `unique_id`
+- `LiveSession.game_type` tracks which game/service was active
+
+### Audio Playback
+- VLC used for both TTS (ElevenLabs) and music playback
+- Windows: `--directx-audio-device` flag for per-instance audio routing
+- Music at `--gain=0.1` (10%) to not compete with voice
 
 ## Common Pitfalls
 
-- EventDispatcher must be called AFTER LiveEvent.create() to ensure event has ID
-- Service class path must be importable (check INSTALLED_APPS and module structure)
-- Workers must be running (`run_queue_workers`) for events to be processed
-- Queue items remain in 'pending' state if no workers are running
-- SYNC services can create bottlenecks if process_event() is slow
-- MySQL utf8mb3 charset limits emoji support - use clean_text() for user input
-- ElevenLabs playback: use `wait=True` in SYNC services to block until audio finishes
-- LLM integration requires proper Config entries (llm_url, llm_key, llm_model)
-- Chrome automation requires xvfb/display setup in Docker for headless operation
+- EventDispatcher must be called AFTER LiveEvent.create()
+- Service class path must be importable (check INSTALLED_APPS)
+- Workers must be running for events to be processed
+- MySQL utf8mb3 charset limits emoji support - use clean_text()
+- ElevenLabs playback: use `wait=True` in SYNC services
+- ViewerCountEvent uses `m_total` for concurrent viewers (NOT `m_popularity` which is always 0)
+- Copyright music is NOT allowed on TikTok Live - use Epidemic Sound or royalty-free only
+- TikTok Live Studio requires 3 lives of 25 min each to unlock virtual camera
